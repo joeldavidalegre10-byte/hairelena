@@ -43,3 +43,10 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Bases de datos SQLite, archivos temporales y respaldos locales
+*.db
+*.db-wal
+*.db-shm
+backend/data/
+backend/data/backups/
