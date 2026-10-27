@@ -1,0 +1,469 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* =============================================================================
+   SISTEMA DE DISEÑO: ÉLITE STUDIO POS (SISTEMA EXCLUSIVO)
+   Paneles rectangulares, bordes nítidos de 1px, acentos violetas (#5b63f6)
+   Modo Oscuro (Negro Neutro Puro) & Modo Claro (Gris Perla de Alta Fidelidad)
+   ============================================================================= */
+
+/* Geometría rectangular compacta para Élite Studio POS */
+html[data-theme="elite-pos"] .rounded-3xl,
+html[data-theme="elite-pos"] .rounded-2xl,
+html[data-theme="elite-pos"] .rounded-xl {
+  border-radius: 0.5rem !important; /* 8px */
+}
+
+html[data-theme="elite-pos"] .rounded-lg,
+html[data-theme="elite-pos"] .rounded-md {
+  border-radius: 0.375rem !important; /* 6px */
+}
+
+html[data-theme="elite-pos"] .app-badge,
+html[data-theme="elite-pos"] .rounded-full:not(.avatar):not(.status-dot):not([data-preserve-rounded]) {
+  border-radius: 0.25rem !important; /* 4px */
+}
+
+html[data-theme="elite-pos"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="elite-pos"] select,
+html[data-theme="elite-pos"] textarea {
+  border-radius: 0.375rem !important;
+}
+
+html[data-theme="elite-pos"] button:not(.status-dot):not([data-preserve-rounded]) {
+  border-radius: 0.375rem;
+}
+
+/* Sombras limpias y sobrias para Élite Studio POS */
+html[data-theme="elite-pos"] .shadow-2xl,
+html[data-theme="elite-pos"] .shadow-xl,
+html[data-theme="elite-pos"] .shadow-lg {
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.1) !important;
+}
+html[data-theme="elite-pos"] .shadow-md {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Densidad visual optimizada */
+html[data-theme="elite-pos"] .p-6 {
+  padding: 1.125rem !important;
+}
+html[data-theme="elite-pos"] .p-5 {
+  padding: 0.875rem !important;
+}
+html[data-theme="elite-pos"] .p-4 {
+  padding: 0.75rem !important;
+}
+html[data-theme="elite-pos"] .gap-4 {
+  gap: 0.75rem !important;
+}
+html[data-theme="elite-pos"] .gap-3 {
+  gap: 0.625rem !important;
+}
+
+/* Color de Acción Principal: Violeta Periwinkle (#5b63f6 / #4f55e3) */
+html[data-theme="elite-pos"] .bg-indigo-600 {
+  background-color: #5b63f6 !important;
+}
+html[data-theme="elite-pos"] .hover\:bg-indigo-700:hover,
+html[data-theme="elite-pos"] .bg-indigo-600:hover {
+  background-color: #4f55e3 !important;
+}
+html[data-theme="elite-pos"] .text-indigo-600 {
+  color: #5b63f6 !important;
+}
+html[data-theme="elite-pos"] .text-indigo-700 {
+  color: #4f55e3 !important;
+}
+html[data-theme="elite-pos"] .border-indigo-600,
+html[data-theme="elite-pos"] .border-indigo-500 {
+  border-color: #5b63f6 !important;
+}
+html[data-theme="elite-pos"] .shadow-indigo-600\/20,
+html[data-theme="elite-pos"] .shadow-indigo-500\/20 {
+  box-shadow: 0 4px 14px -2px rgba(91, 99, 246, 0.3) !important;
+}
+
+/* Botón de cobro en Élite Studio POS: Violeta periwinkle (#5b63f6) de referencia */
+html[data-theme="elite-pos"] .btn-checkout-pos:not(:disabled) {
+  background: #5b63f6 !important;
+  background-image: none !important;
+  box-shadow: 0 4px 14px -2px rgba(91, 99, 246, 0.35) !important;
+}
+html[data-theme="elite-pos"] .btn-checkout-pos:not(:disabled):hover {
+  background: #4f55e3 !important;
+  background-image: none !important;
+}
+
+/* =============================================================================
+   ÉLITE STUDIO POS: MODO OSCURO (REFERENCIA POS)
+   Fondo negro puro (#0a0b0e), barras y carrito (#0d0e12), tarjetas (#121318)
+   Sin tonalidades azul marino en ningún módulo del sistema.
+   El azul marino (slate) corresponde exclusivamente al tema por defecto (Élite Clásico).
+   ============================================================================= */
+
+/* Redefinición de variables Slate de Tailwind v4 a escala de negros neutros */
+html.dark[data-theme="elite-pos"] {
+  --color-slate-950: #0a0b0e !important;
+  --color-slate-900: #121318 !important;
+  --color-slate-850: #14151b !important;
+  --color-slate-800: #1a1b22 !important;
+  --color-slate-700: #1f2128 !important;
+  --color-slate-600: #2d3148 !important;
+  --color-indigo-950: #161726 !important;
+  --color-indigo-900: #1c1e36 !important;
+}
+
+/* Lienzo global, body, main y contenedores principales */
+html.dark[data-theme="elite-pos"],
+html.dark[data-theme="elite-pos"] body,
+html.dark[data-theme="elite-pos"] #root,
+html.dark[data-theme="elite-pos"] main,
+html.dark[data-theme="elite-pos"] .bg-slate-950,
+html.dark[data-theme="elite-pos"] [class*="bg-slate-950"],
+html.dark[data-theme="elite-pos"] [class*="dark:bg-slate-950"] {
+  background-color: #0a0b0e !important;
+  color: #f8fafc !important;
+}
+
+/* Barra lateral (Sidebar), Barra superior (Navbar) y Carrito POS (#0d0e12) */
+html.dark[data-theme="elite-pos"] aside,
+html.dark[data-theme="elite-pos"] header,
+html.dark[data-theme="elite-pos"] .lg\:w-96,
+html.dark[data-theme="elite-pos"] .xl\:w-\[420px\] {
+  background-color: #0d0e12 !important;
+  border-color: #1a1b20 !important;
+}
+
+/* Menú lateral activo: fondo violeta translúcido con borde violeta */
+html.dark[data-theme="elite-pos"] aside button.bg-indigo-600,
+html.dark[data-theme="elite-pos"] aside button[class*="bg-indigo-600"] {
+  background-color: rgba(91, 99, 246, 0.15) !important;
+  color: #818cf8 !important;
+  border: 1px solid rgba(91, 99, 246, 0.4) !important;
+  box-shadow: none !important;
+}
+html.dark[data-theme="elite-pos"] aside button.bg-indigo-600 svg,
+html.dark[data-theme="elite-pos"] aside button[class*="bg-indigo-600"] svg {
+  color: #818cf8 !important;
+}
+
+/* Tarjetas, paneles, modales y contenedores en TODOS los módulos (#121318) */
+html.dark[data-theme="elite-pos"] .bg-slate-900,
+html.dark[data-theme="elite-pos"] [class*="bg-slate-900"],
+html.dark[data-theme="elite-pos"] [class*="dark:bg-slate-900"],
+html.dark[data-theme="elite-pos"] .app-card,
+html.dark[data-theme="elite-pos"] .app-modal,
+html.dark[data-theme="elite-pos"] .bg-white {
+  background-color: #121318 !important;
+  border-color: #1f2128 !important;
+}
+
+/* Tarjeta seleccionada con borde violeta de referencia */
+html.dark[data-theme="elite-pos"] .border-indigo-400,
+html.dark[data-theme="elite-pos"] .border-indigo-600 {
+  border-color: #5b63f6 !important;
+}
+
+/* Ítems del carrito */
+html.dark[data-theme="elite-pos"] .lg\:w-96 .bg-slate-950,
+html.dark[data-theme="elite-pos"] .lg\:w-96 [class*="bg-slate-950"],
+html.dark[data-theme="elite-pos"] .lg\:w-96 .bg-slate-50,
+html.dark[data-theme="elite-pos"] .lg\:w-96 [class*="bg-slate-50"] {
+  background-color: #121318 !important;
+  border-color: #1f2128 !important;
+}
+
+/* Campos de entrada en negro neutro (#121318) */
+html.dark[data-theme="elite-pos"] input:not([type="checkbox"]):not([type="radio"]),
+html.dark[data-theme="elite-pos"] select,
+html.dark[data-theme="elite-pos"] textarea {
+  background-color: #121318 !important;
+  border-color: #1f2128 !important;
+  color: #ffffff !important;
+}
+html.dark[data-theme="elite-pos"] input:focus,
+html.dark[data-theme="elite-pos"] select:focus,
+html.dark[data-theme="elite-pos"] textarea:focus {
+  border-color: #5b63f6 !important;
+  box-shadow: 0 0 0 1px #5b63f6 !important;
+}
+
+/* Bordes universales en modo oscuro neutro (elimina todo azul marino de bordes) */
+html.dark[data-theme="elite-pos"] .border-slate-800,
+html.dark[data-theme="elite-pos"] .border-slate-700,
+html.dark[data-theme="elite-pos"] [class*="border-slate-800"],
+html.dark[data-theme="elite-pos"] [class*="border-slate-700"],
+html.dark[data-theme="elite-pos"] [class*="dark:border-slate-800"],
+html.dark[data-theme="elite-pos"] [class*="dark:border-slate-700"] {
+  border-color: #1f2128 !important;
+}
+
+/* Superficies secundarias elevadas y hovers en todos los módulos */
+html.dark[data-theme="elite-pos"] .bg-slate-800,
+html.dark[data-theme="elite-pos"] [class*="bg-slate-800"],
+html.dark[data-theme="elite-pos"] [class*="dark:bg-slate-800"],
+html.dark[data-theme="elite-pos"] [class*="dark:hover:bg-slate-800"]:hover,
+html.dark[data-theme="elite-pos"] [class*="dark:hover:bg-slate-900"]:hover {
+  background-color: #1a1b22 !important;
+}
+
+/* Tablas en Historial, Inventario, Pagos, Reportes, Usuarios, etc. */
+html.dark[data-theme="elite-pos"] table thead,
+html.dark[data-theme="elite-pos"] table th {
+  background-color: #14151b !important;
+  border-color: #1f2128 !important;
+  color: #8b92a5 !important;
+}
+html.dark[data-theme="elite-pos"] table tbody tr {
+  border-color: #1a1b20 !important;
+}
+html.dark[data-theme="elite-pos"] table tbody tr:hover {
+  background-color: #161720 !important;
+}
+
+/* =============================================================================
+   CUADROS INTERACTIVOS Y TRANSICIÓN DE COLORES ELEGANTE (SIN REDUNDANCIA)
+   Resalta sutilmente los colores al pasar el cursor (borde y acentos violetas),
+   sin saltos físicos (translateY) ni anillos pesados redundantes.
+   ============================================================================= */
+.pos-interactive-card {
+  position: relative;
+  transition: border-color 0.15s ease,
+              background-color 0.15s ease,
+              box-shadow 0.15s ease;
+}
+
+.pos-interactive-card:hover {
+  position: relative !important;
+  z-index: 25 !important;
+}
+
+html.dark .pos-interactive-card:hover {
+  background-color: #161824 !important;
+  border-color: #5b63f6 !important;
+  box-shadow: none !important;
+}
+
+/* Hover en Modo Claro: resalta el cuadro completo con borde violeta y fondo contrastante sin ser tapado */
+html:not(.dark) .pos-interactive-card:hover {
+  background-color: #f5f4fe !important;
+  border-color: #5b63f6 !important;
+  box-shadow: 0 0 0 1.5px #5b63f6, 0 4px 14px -2px rgba(91, 99, 246, 0.2) !important;
+}
+
+/* Items seleccionables en Modales (Precio y Estilista) */
+.modal-selectable-item {
+  position: relative;
+  transition: border-color 0.15s ease,
+              background-color 0.15s ease,
+              box-shadow 0.15s ease,
+              color 0.15s ease;
+}
+
+.modal-selectable-item:hover {
+  position: relative !important;
+  z-index: 25 !important;
+}
+
+html.dark .modal-selectable-item {
+  background-color: #121318 !important;
+  border-color: #1f2128 !important;
+}
+
+html.dark .modal-selectable-item:hover {
+  background-color: #161824 !important;
+  border-color: #5b63f6 !important;
+  box-shadow: none !important;
+}
+
+html:not(.dark) .modal-selectable-item {
+  background-color: #ffffff !important;
+  border-color: #e8edf4 !important;
+}
+
+/* Hover en Modo Claro para items en modales */
+html:not(.dark) .modal-selectable-item:hover {
+  background-color: #f5f4fe !important;
+  border-color: #5b63f6 !important;
+  box-shadow: 0 0 0 1.5px #5b63f6, 0 4px 14px -2px rgba(91, 99, 246, 0.2) !important;
+}
+
+/* Marcaje sutil del estilista/item seleccionado: fondo oscuro con sutil tinte violeta (NUNCA blanco) */
+html.dark .modal-selectable-item.is-selected,
+html.dark .is-selected {
+  background-color: #161826 !important;
+  border-color: #5b63f6 !important;
+  box-shadow: none !important;
+}
+
+html:not(.dark) .modal-selectable-item.is-selected,
+html:not(.dark) .is-selected {
+  background-color: #f0f2ff !important;
+  border-color: #5b63f6 !important;
+  box-shadow: none !important;
+}
+
+/* Texto en modo oscuro */
+html.dark[data-theme="elite-pos"] .text-slate-100,
+html.dark[data-theme="elite-pos"] .text-white {
+  color: #ffffff !important;
+}
+html.dark[data-theme="elite-pos"] .text-slate-400,
+html.dark[data-theme="elite-pos"] .text-slate-500 {
+  color: #8b92a5 !important;
+}
+
+/* Insignia de Caja Abierta en modo oscuro */
+html.dark[data-theme="elite-pos"] .bg-emerald-500\/10,
+html.dark[data-theme="elite-pos"] .bg-emerald-500\/20 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+html.dark[data-theme="elite-pos"] .text-emerald-400 {
+  color: #34d399 !important;
+}
+
+/* =============================================================================
+   ÉLITE STUDIO POS: MODO CLARO (IMAGEN 2 DE REFERENCIA)
+   Lienzo gris claro (#f6f8fb), barras y tarjetas blancas (#ffffff), bordes (#e8edf4)
+   ============================================================================= */
+html:not(.dark)[data-theme="elite-pos"] body,
+html:not(.dark)[data-theme="elite-pos"] main {
+  background-color: #f6f8fb !important;
+  color: #111827 !important;
+}
+
+/* Barra lateral y superior blancas (#ffffff) */
+html:not(.dark)[data-theme="elite-pos"] aside {
+  background-color: #ffffff !important;
+  border-right-color: #e8edf4 !important;
+}
+html:not(.dark)[data-theme="elite-pos"] header {
+  background-color: #ffffff !important;
+  border-bottom-color: #e8edf4 !important;
+}
+
+/* Menú lateral activo: fondo violeta muy claro con texto y borde violeta (#f3f0ff) */
+html:not(.dark)[data-theme="elite-pos"] aside button.bg-indigo-600,
+html:not(.dark)[data-theme="elite-pos"] aside button[class*="bg-indigo-600"] {
+  background-color: #f3f0ff !important;
+  color: #5b63f6 !important;
+  border: 1px solid #e0d8ff !important;
+  box-shadow: none !important;
+}
+html:not(.dark)[data-theme="elite-pos"] aside button.bg-indigo-600 svg,
+html:not(.dark)[data-theme="elite-pos"] aside button[class*="bg-indigo-600"] svg {
+  color: #5b63f6 !important;
+}
+
+/* Paneles, tarjetas y modales en blanco (#ffffff) */
+html:not(.dark)[data-theme="elite-pos"] .bg-white,
+html:not(.dark)[data-theme="elite-pos"] .bg-white\/90,
+html:not(.dark)[data-theme="elite-pos"] .bg-white\/80,
+html:not(.dark)[data-theme="elite-pos"] .app-card,
+html:not(.dark)[data-theme="elite-pos"] .app-modal {
+  background-color: #ffffff !important;
+  border-color: #e8edf4 !important;
+}
+
+/* Carrito de ventas (lado derecho) */
+html:not(.dark)[data-theme="elite-pos"] .lg\:w-96,
+html:not(.dark)[data-theme="elite-pos"] .xl\:w-\[420px\] {
+  background-color: #ffffff !important;
+  border-left-color: #e8edf4 !important;
+}
+
+/* Ítems del carrito en modo claro */
+html:not(.dark)[data-theme="elite-pos"] .lg\:w-96 .bg-slate-50,
+html:not(.dark)[data-theme="elite-pos"] .lg\:w-96 [class*="bg-slate-50"] {
+  background-color: #f8fafc !important;
+  border-color: #e8edf4 !important;
+}
+
+/* Campos de entrada en modo claro */
+html:not(.dark)[data-theme="elite-pos"] input:not([type="checkbox"]):not([type="radio"]),
+html:not(.dark)[data-theme="elite-pos"] select,
+html:not(.dark)[data-theme="elite-pos"] textarea {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #111827 !important;
+}
+html:not(.dark)[data-theme="elite-pos"] input:focus,
+html:not(.dark)[data-theme="elite-pos"] select:focus,
+html:not(.dark)[data-theme="elite-pos"] textarea:focus {
+  border-color: #5b63f6 !important;
+  box-shadow: 0 0 0 1px #5b63f6 !important;
+}
+
+/* Bordes en modo claro */
+html:not(.dark)[data-theme="elite-pos"] .border-slate-200,
+html:not(.dark)[data-theme="elite-pos"] .border-slate-300 {
+  border-color: #e8edf4 !important;
+}
+
+/* Texto en modo claro */
+html:not(.dark)[data-theme="elite-pos"] .text-slate-900 {
+  color: #111827 !important;
+}
+html:not(.dark)[data-theme="elite-pos"] .text-slate-600,
+html:not(.dark)[data-theme="elite-pos"] .text-slate-500 {
+  color: #6b7280 !important;
+}
+
+/* Insignia de Caja Abierta en modo claro */
+html:not(.dark)[data-theme="elite-pos"] .bg-emerald-50 {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+/* Preservación estricta de elementos circulares específicos */
+.avatar,
+.status-dot,
+[data-preserve-rounded] {
+  border-radius: 9999px !important;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+:not(.dark) ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

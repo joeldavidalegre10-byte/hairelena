@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { SalesController } from './sales.controller.js';
+import { authenticate } from '../../middleware/auth.js';
+
+const router = Router();
+
+router.use(authenticate);
+router.get('/', SalesController.list);
+router.get('/:id', SalesController.getById);
+router.post('/', SalesController.create);
+router.delete('/:id', SalesController.cancel);
+router.post('/:id/cancel', SalesController.cancel);
+
+export default router;

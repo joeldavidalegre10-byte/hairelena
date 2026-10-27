@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { SystemController } from './system.controller.js';
+import { authenticate } from '../../middleware/auth.js';
+import { authorize } from '../../middleware/roles.js';
+
+const router = Router();
+
+router.use(authenticate);
+router.use(authorize(['admin']));
+
+router.post('/backup', SystemController.createBackup);
+router.get('/backups', SystemController.getBackups);
+router.post('/restore', SystemController.restore);
+
+export default router;
