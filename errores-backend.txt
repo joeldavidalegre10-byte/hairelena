@@ -1,0 +1,67 @@
+
+> elite-studio-pos@1.0.0 build:backend
+> npm run build --workspace=backend
+
+
+> elite-studio-pos-backend@1.0.0 build
+> tsc
+
+src/config/env.ts(1,20): error TS2307: Cannot find module 'dotenv' or its corresponding type declarations.
+src/db/database.ts(2,19): error TS2307: Cannot find module 'mysql2/promise' or its corresponding type declarations.
+src/db/database.ts(13,35): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', 'node20', or 'nodenext'.
+src/middleware/validate.ts(2,40): error TS2307: Cannot find module 'zod' or its corresponding type declarations.
+src/middleware/validate.ts(18,19): error TS18046: 'error' is of type 'unknown'.
+src/middleware/validate.ts(18,37): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/modules/auth/auth.routes.ts(5,19): error TS2307: Cannot find module 'zod' or its corresponding type declarations.
+src/modules/auth/auth.routes.ts(15,14): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/modules/cash-registers/cash-registers.controller.ts(51,61): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/cash-registers/cash-registers.controller.ts(62,67): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/cash-registers/cash-registers.controller.ts(71,61): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/cash-registers/cash-registers.controller.ts(102,72): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/commissions/commissions.controller.ts(56,59): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/commissions/commissions.controller.ts(122,66): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/commissions/commissions.controller.ts(159,77): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/commissions/commissions.controller.ts(196,79): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/inventory/inventory.controller.ts(43,57): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/inventory/inventory.controller.ts(79,57): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/inventory/inventory.controller.ts(89,55): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/sales/sales.controller.ts(39,47): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/sales/sales.controller.ts(101,58): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/settings/settings.controller.ts(85,55): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/settings/settings.controller.ts(121,68): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/settings/settings.controller.ts(136,70): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/settings/settings.controller.ts(151,53): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/settings/settings.controller.ts(165,56): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/stylists/stylists.controller.ts(25,48): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/stylists/stylists.controller.ts(49,49): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/users/users.controller.ts(16,47): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/modules/users/users.controller.ts(34,49): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+npm error Lifecycle script `build` failed with error:
+npm error code 2
+npm error path C:\Users\joeld\.gemini\antigravity\scratch\elite-studio-pos\backend
+npm error workspace elite-studio-pos-backend@1.0.0
+npm error location C:\Users\joeld\.gemini\antigravity\scratch\elite-studio-pos\backend
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c tsc

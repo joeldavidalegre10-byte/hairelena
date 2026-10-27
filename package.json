@@ -1,8 +1,9 @@
+
 {
   "name": "elite-studio-pos",
   "version": "1.0.0",
   "private": true,
-  "description": "Elite Studio POS - Punto de Venta & Gestión de Salón",
+  "description": "Elite Studio POS - Punto de Venta y Gestión de Salón",
   "workspaces": [
     "frontend",
     "backend"
@@ -14,7 +15,9 @@
     "dev:backend": "npm run dev --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
-    "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend"
+    "clean:deploy": "rimraf deploy_bundle",
+    "predeploy:prepare": "npm run clean:deploy && npm run build",
+    "deploy:prepare": "node backend/scripts/package-deploy.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

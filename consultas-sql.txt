@@ -1,0 +1,165 @@
+backend\src\db\database.ts:96:    .replace(/INSERT OR IGNORE INTO/gi, 'INSERT IGNORE INTO')
+backend\src\db\database.ts:97:    .replace(/INSERT OR REPLACE INTO/gi, 'REPLACE INTO');
+backend\src\db\database.ts:247:    const row = raw.prepare('SELECT COUNT(*) AS c FROM users').get() as
+backend\src\db\database.ts:266:      INSERT INTO users
+backend\src\db\database.ts:272:      INSERT INTO users
+backend\src\db\database.ts:369:      await conn.query('SELECT 1 AS connected');
+backend\src\db\database.ts:393:        `SELECT TABLE_NAME
+backend\src\db\database.ts:425:  await db.prepare('SELECT 1 AS connected').get();
+backend\src\middleware\auth.ts:49:      SELECT id, email, full_name, role, is_active
+backend\src\modules\auth\auth.service.ts:25:      SELECT id, username, email, password_hash, full_name, role, is_active
+backend\src\modules\auth\auth.service.ts:79:      SELECT id, username, email, full_name, role, phone, is_active, created_at
+backend\src\modules\auth\auth.service.ts:102:      SELECT password_hash
+backend\src\modules\cash-registers\cash-registers.service.ts:51:      SELECT *
+backend\src\modules\cash-registers\cash-registers.service.ts:73:        SELECT id FROM cash_registers WHERE status = 'open' LIMIT 1
+backend\src\modules\cash-registers\cash-registers.service.ts:83:        INSERT INTO cash_registers (
+backend\src\modules\cash-registers\cash-registers.service.ts:89:      return normalizeRegister(await db.prepare('SELECT * FROM cash_registers WHERE id = ?').get(id));
+backend\src\modules\cash-registers\cash-registers.service.ts:98:      const reg = (await db.prepare('SELECT * FROM cash_registers WHERE id = ?').get(registerId)) as any;
+backend\src\modules\cash-registers\cash-registers.service.ts:109:        UPDATE cash_registers
+backend\src\modules\cash-registers\cash-registers.service.ts:115:      return normalizeRegister(await db.prepare('SELECT * FROM cash_registers WHERE id = ?').get(registerId));
+backend\src\modules\cash-registers\cash-registers.service.ts:135:      const reg = (await db.prepare('SELECT id, status, expected_amount FROM cash_registers WHERE id = ?').get(registerId)) as any;
+backend\src\modules\cash-registers\cash-registers.service.ts:149:        INSERT INTO cash_movements (id, register_id, type, amount, reason, created_by, created_at)
+backend\src\modules\cash-registers\cash-registers.service.ts:156:        UPDATE cash_registers
+backend\src\modules\cash-registers\cash-registers.service.ts:161:      return normalizeMovement(await db.prepare('SELECT * FROM cash_movements WHERE id = ?').get(id));
+backend\src\modules\cash-registers\cash-registers.service.ts:168:      SELECT cm.*, u.full_name as created_by_name
+backend\src\modules\cash-registers\cash-registers.service.ts:181:      const mov = (await db.prepare('SELECT * FROM cash_movements WHERE id = ?').get(movementId)) as any;
+backend\src\modules\cash-registers\cash-registers.service.ts:186:      const reg = (await db.prepare('SELECT * FROM cash_registers WHERE id = ?').get(mov.register_id)) as any;
+backend\src\modules\cash-registers\cash-registers.service.ts:203:        UPDATE cash_registers
+backend\src\modules\cash-registers\cash-registers.service.ts:212:        await db.prepare('SELECT * FROM cash_registers WHERE id = ?').get(mov.register_id),
+backend\src\modules\cash-registers\cash-registers.service.ts:218:      const user = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+backend\src\modules\cash-registers\cash-registers.service.ts:223:        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+backend\src\modules\cash-registers\cash-registers.service.ts:241:      await db.prepare('DELETE FROM cash_movements WHERE id = ?').run(movementId);
+backend\src\modules\commissions\commissions.service.ts:220:        INSERT INTO stylist_payouts (
+backend\src\modules\commissions\commissions.service.ts:227:        INSERT INTO stylist_payout_items (
+backend\src\modules\commissions\commissions.service.ts:277:        UPDATE commissions
+backend\src\modules\commissions\commissions.service.ts:285:        'SELECT COUNT(*) as n FROM commissions WHERE payout_id = ?'
+backend\src\modules\commissions\commissions.service.ts:292:      const stylist = (await db.prepare('SELECT full_name FROM stylists WHERE id = ?').get(stylistId)) as any;
+backend\src\modules\commissions\commissions.service.ts:355:        SELECT ${PAYOUT_ITEM_COLUMNS}
+backend\src\modules\commissions\commissions.service.ts:391:      SELECT ${PAYOUT_ITEM_COLUMNS}
+backend\src\modules\commissions\commissions.service.ts:403:      SELECT c.*, st.full_name as stylist_name, s.invoice_number
+backend\src\modules\commissions\commissions.service.ts:440:      UPDATE commissions
+backend\src\modules\commissions\commissions.service.ts:452:    const pending = (await db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM commissions WHERE status = 'pending'").get()) as any;
+backend\src\modules\commissions\commissions.service.ts:453:    const paid = (await db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM commissions WHERE status = 'paid'").get()) as any;
+backend\src\modules\commissions\commissions.service.ts:454:    const count = (await db.prepare('SELECT COUNT(*) as count FROM commissions').get()) as any;
+backend\src\modules\commissions\commissions.service.ts:470:      const payout = (await db.prepare('SELECT * FROM stylist_payouts WHERE id = ?').get(payoutId)) as any;
+backend\src\modules\commissions\commissions.service.ts:483:        UPDATE commissions
+backend\src\modules\commissions\commissions.service.ts:485:        WHERE payout_id = ? OR id IN (SELECT commission_id FROM stylist_payout_items WHERE payout_id = ? AND commission_id IS NOT NULL)
+backend\src\modules\commissions\commissions.service.ts:492:        UPDATE stylist_payouts
+backend\src\modules\commissions\commissions.service.ts:502:      const user = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+backend\src\modules\commissions\commissions.service.ts:506:        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+backend\src\modules\commissions\commissions.service.ts:540:        SELECT c.*, st.full_name as stylist_name, si.item_name as service_name, s.invoice_number
+backend\src\modules\commissions\commissions.service.ts:555:      await db.prepare("DELETE FROM commissions WHERE id = ? AND status = 'pending'").run(commissionId);
+backend\src\modules\commissions\commissions.service.ts:558:      const user = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+backend\src\modules\commissions\commissions.service.ts:562:        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+backend\src\modules\commissions\commissions.service.ts:598:        SELECT c.id, c.amount, si.item_name
+backend\src\modules\commissions\commissions.service.ts:608:      const stylist = (await db.prepare('SELECT full_name FROM stylists WHERE id = ?').get(stylistId)) as any;
+backend\src\modules\commissions\commissions.service.ts:615:      await db.prepare("DELETE FROM commissions WHERE stylist_id = ? AND status = 'pending'").run(stylistId);
+backend\src\modules\commissions\commissions.service.ts:618:      const user = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+backend\src\modules\commissions\commissions.service.ts:622:        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+backend\src\modules\inventory\inventory.service.ts:9:    return await db.prepare('SELECT * FROM categories ORDER BY name ASC').all();
+backend\src\modules\inventory\inventory.service.ts:16:      SELECT s.*, c.name as category_name
+backend\src\modules\inventory\inventory.service.ts:25:        SELECT id, service_id, name, price, duration_minutes, is_active
+backend\src\modules\inventory\inventory.service.ts:55:    let query = 'SELECT * FROM service_variants WHERE is_active = 1';
+backend\src\modules\inventory\inventory.service.ts:76:      INSERT INTO service_variants (id, service_id, name, price, duration_minutes, is_active, created_at)
+backend\src\modules\inventory\inventory.service.ts:80:    return await db.prepare('SELECT * FROM service_variants WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:105:      INSERT INTO services (id, category_id, name, description, duration_minutes, price, cost, profit_margin_percent, is_active, created_at, updated_at)
+backend\src\modules\inventory\inventory.service.ts:123:        INSERT INTO service_variants (id, service_id, name, price, duration_minutes, is_active, created_at)
+backend\src\modules\inventory\inventory.service.ts:141:    const created = (await db.prepare('SELECT * FROM services WHERE id = ?').get(id)) as any;
+backend\src\modules\inventory\inventory.service.ts:142:    const variants = (await db.prepare('SELECT * FROM service_variants WHERE service_id = ? AND is_active = 1').all(id)) as any[];
+backend\src\modules\inventory\inventory.service.ts:161:    const existing = await db.prepare('SELECT id FROM services WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:203:      await db.prepare(`UPDATE services SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+backend\src\modules\inventory\inventory.service.ts:206:    return await db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:213:      SELECT p.*, c.name as category_name
+backend\src\modules\inventory\inventory.service.ts:246:      while (await db.prepare('SELECT id FROM products WHERE barcode = ? OR sku = ?').get(String(nextNum), String(nextNum))) {
+backend\src\modules\inventory\inventory.service.ts:259:      INSERT INTO products (id, category_id, name, barcode, sku, description, cost_price, sale_price, stock, min_stock, is_active, created_at, updated_at)
+backend\src\modules\inventory\inventory.service.ts:276:    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:292:    const existing = await db.prepare('SELECT id FROM products WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:342:      await db.prepare(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+backend\src\modules\inventory\inventory.service.ts:345:    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+backend\src\modules\inventory\inventory.service.ts:350:    const product = (await db.prepare('SELECT id, stock FROM products WHERE id = ?').get(id)) as { id: string; stock: number } | undefined;
+backend\src\modules\inventory\inventory.service.ts:354:    await db.prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?").run(newStock, id);
+backend\src\modules\inventory\inventory.service.ts:356:    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+backend\src\modules\reports\reports.service.ts:41:      SELECT expected_amount
+backend\src\modules\reports\reports.service.ts:52:      SELECT *
+backend\src\modules\sales\sales.service.ts:85:          SELECT s.*, u.full_name as cashier_name
+backend\src\modules\sales\sales.service.ts:92:          SELECT s.*, u.full_name as cashier_name
+backend\src\modules\sales\sales.service.ts:100:      SELECT si.*, st.full_name as stylist_name
+backend\src\modules\sales\sales.service.ts:128:      SELECT s.*, u.full_name as cashier_name
+backend\src\modules\sales\sales.service.ts:137:      SELECT si.*, st.full_name as stylist_name
+backend\src\modules\sales\sales.service.ts:192:      const activeReg = (await db.prepare("SELECT id, status FROM cash_registers WHERE status = 'open' ORDER BY opened_at DESC LIMIT 1").get()) as { id: string; status: string } | undefined;
+backend\src\modules\sales\sales.service.ts:210:        INSERT INTO sales (
+backend\src\modules\sales\sales.service.ts:234:        INSERT INTO sale_items (
+backend\src\modules\sales\sales.service.ts:242:        INSERT INTO commissions (
+backend\src\modules\sales\sales.service.ts:251:        UPDATE products
+backend\src\modules\sales\sales.service.ts:268:          const srv = (await db.prepare('SELECT custom_margin_active FROM services WHERE id = ?').get(item.item_id)) as { custom_margin_active: number } | undefined;
+backend\src\modules\sales\sales.service.ts:275:              SELECT profit_margin_percent, is_active
+backend\src\modules\sales\sales.service.ts:298:          const prd = (await db.prepare('SELECT cost_price FROM products WHERE id = ?').get(item.item_id)) as { cost_price: number } | undefined;
+backend\src\modules\sales\sales.service.ts:355:          UPDATE cash_registers
+backend\src\modules\sales\sales.service.ts:384:      const sale = (await db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId)) as any;
+backend\src\modules\sales\sales.service.ts:395:        SELECT c.id, c.status, c.payout_id, st.full_name as stylist_name
+backend\src\modules\sales\sales.service.ts:409:      const items = (await db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId)) as any[];
+backend\src\modules\sales\sales.service.ts:413:        UPDATE products
+backend\src\modules\sales\sales.service.ts:425:      await db.prepare("DELETE FROM commissions WHERE sale_id = ? AND status = 'pending'").run(saleId);
+backend\src\modules\sales\sales.service.ts:430:        const reg = (await db.prepare('SELECT id, status, expected_amount FROM cash_registers WHERE id = ?').get(sale.register_id)) as any;
+backend\src\modules\sales\sales.service.ts:441:              UPDATE cash_registers
+backend\src\modules\sales\sales.service.ts:460:        UPDATE sales
+backend\src\modules\sales\sales.service.ts:467:      const user = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+backend\src\modules\sales\sales.service.ts:471:        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+backend\src\modules\sales\sales.service.ts:489:      const updated = (await db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId)) as any;
+backend\src\modules\settings\settings.service.ts:20:    const row = (await db.prepare('SELECT value FROM settings WHERE key = ?').get(key)) as { value: string } | undefined;
+backend\src\modules\settings\settings.service.ts:27:    const existing = await db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
+backend\src\modules\settings\settings.service.ts:29:      await db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?').run(String(value), now, key);
+backend\src\modules\settings\settings.service.ts:31:      await db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(key, String(value), now);
+backend\src\modules\settings\settings.service.ts:37:    const rows = (await db.prepare('SELECT key, value FROM settings').all()) as Array<{ key: string; value: string }>;
+backend\src\modules\settings\settings.service.ts:66:      UPDATE service_stylist_margins
+backend\src\modules\settings\settings.service.ts:77:      SELECT s.id, s.name, s.price, s.description, s.custom_margin_active, s.is_active, c.name as category_name
+backend\src\modules\settings\settings.service.ts:85:      SELECT sm.service_id, sm.stylist_id, sm.profit_margin_percent, sm.is_active, sm.is_hidden,
+backend\src\modules\settings\settings.service.ts:94:      SELECT id, full_name, commission_rate, is_active
+backend\src\modules\settings\settings.service.ts:138:      UPDATE services
+backend\src\modules\settings\settings.service.ts:172:    const existing = await db.prepare('SELECT id FROM service_stylist_margins WHERE service_id = ? AND stylist_id = ?').get(serviceId, stylistId);
+backend\src\modules\settings\settings.service.ts:177:        UPDATE service_stylist_margins
+backend\src\modules\settings\settings.service.ts:184:        INSERT INTO service_stylist_margins (id, service_id, stylist_id, profit_margin_percent, is_active, is_hidden, created_at, updated_at)
+backend\src\modules\settings\settings.service.ts:194:    const existing = (await db.prepare('SELECT id, profit_margin_percent FROM service_stylist_margins WHERE service_id = ? AND stylist_id = ?').get(serviceId, stylistId)) as { id: string; profit_margin_percent: number } | undefined;
+backend\src\modules\settings\settings.service.ts:210:        UPDATE service_stylist_margins
+backend\src\modules\settings\settings.service.ts:217:        INSERT INTO service_stylist_margins (id, service_id, stylist_id, profit_margin_percent, is_active, is_hidden, created_at, updated_at)
+backend\src\modules\settings\settings.service.ts:227:    const existing = await db.prepare('SELECT id FROM service_stylist_margins WHERE service_id = ? AND stylist_id = ?').get(serviceId, stylistId);
+backend\src\modules\settings\settings.service.ts:232:        UPDATE service_stylist_margins
+backend\src\modules\settings\settings.service.ts:240:        INSERT INTO service_stylist_margins (id, service_id, stylist_id, profit_margin_percent, is_active, is_hidden, created_at, updated_at)
+backend\src\modules\settings\settings.service.ts:248:    await db.prepare('DELETE FROM service_stylist_margins WHERE service_id = ? AND stylist_id = ?').run(serviceId, stylistId);
+backend\src\modules\stylists\stylists.service.ts:9:      SELECT id, user_id, full_name, email, phone, commission_rate, specialties, is_active, created_at, updated_at
+backend\src\modules\stylists\stylists.service.ts:23:    const row = (await db.prepare('SELECT * FROM stylists WHERE id = ?').get(id)) as any;
+backend\src\modules\stylists\stylists.service.ts:48:      INSERT INTO stylists (id, user_id, full_name, email, phone, commission_rate, specialties, is_active, created_at, updated_at)
+backend\src\modules\stylists\stylists.service.ts:75:    const existing = await db.prepare('SELECT id FROM stylists WHERE id = ?').get(id);
+backend\src\modules\stylists\stylists.service.ts:116:      UPDATE stylists
+backend\src\modules\users\users.service.ts:10:      SELECT id, username, email, full_name, role, phone, is_active, created_at
+backend\src\modules\users\users.service.ts:19:      SELECT id, username, email, full_name, role, phone, is_active, created_at
+backend\src\modules\users\users.service.ts:52:    const existing = await db.prepare('SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?').get(username, email);
+backend\src\modules\users\users.service.ts:63:      INSERT INTO users (id, username, email, password_hash, full_name, role, phone, is_active, created_at, updated_at)
+backend\src\modules\users\users.service.ts:88:    const user = await db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+backend\src\modules\users\users.service.ts:125:      UPDATE users
+backend\src\routes.ts:23:    await db.prepare('SELECT 1 AS ok').get();
+backend\src\test_profit_margins_e2e.ts:265:      .prepare('SELECT profit_margin_percent, is_active FROM service_stylist_margins WHERE service_id = ? AND stylist_id = ?')
+backend\src\test_security_caja_ventas_e2e.ts:63:    const regBeforeMov = db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any;
+backend\src\test_security_caja_ventas_e2e.ts:80:    const regAfterMov = db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any;
+backend\src\test_security_caja_ventas_e2e.ts:100:    const movInDb = db.prepare('SELECT * FROM cash_movements WHERE id = ?').get(movementId);
+backend\src\test_security_caja_ventas_e2e.ts:104:    const regAfterDel = db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any;
+backend\src\test_security_caja_ventas_e2e.ts:133:    const mov2Check = db.prepare('SELECT * FROM cash_movements WHERE id = ?').get(movement2Id);
+backend\src\test_security_caja_ventas_e2e.ts:163:    const products = db.prepare("SELECT id, name, stock, sale_price FROM products WHERE is_active = 1 AND stock >= 5 LIMIT 1").get() as any;
+backend\src\test_security_caja_ventas_e2e.ts:171:    const regBeforeSale = db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any;
+backend\src\test_security_caja_ventas_e2e.ts:198:    const stockAfterSale = (db.prepare('SELECT stock FROM products WHERE id = ?').get(products.id) as any).stock;
+backend\src\test_security_caja_ventas_e2e.ts:204:    const cashAfterSale = (db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any).expected_amount;
+backend\src\test_security_caja_ventas_e2e.ts:235:    const saleInDb = db.prepare('SELECT status, notes FROM sales WHERE id = ?').get(createdSale.id) as any;
+backend\src\test_security_caja_ventas_e2e.ts:241:    const stockAfterCancel = (db.prepare('SELECT stock FROM products WHERE id = ?').get(products.id) as any).stock;
+backend\src\test_security_caja_ventas_e2e.ts:247:    const cashAfterCancel = (db.prepare('SELECT expected_amount FROM cash_registers WHERE id = ?').get(registerId) as any).expected_amount;
+backend\src\test_security_caja_ventas_e2e.ts:269:    const stylist = db.prepare("SELECT id, full_name FROM stylists WHERE is_active = 1 LIMIT 1").get() as any;
+backend\src\test_security_caja_ventas_e2e.ts:270:    const service = db.prepare("SELECT id, name, price FROM services WHERE is_active = 1 LIMIT 1").get() as any;
+backend\src\test_security_caja_ventas_e2e.ts:444:    const auditLogs = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5').all() as any[];
+backend\src\test_stylist_payouts_e2e.ts:216:    const rowPayout = db.prepare('SELECT * FROM stylist_payouts WHERE id = ?').get(firstPayout.id) as any;
+backend\src\test_stylist_payouts_e2e.ts:217:    const rowItems = db.prepare('SELECT * FROM stylist_payout_items WHERE payout_id = ?').all(firstPayout.id) as any[];
+backend\src\test_stylist_payouts_e2e.ts:229:    db.prepare('UPDATE services SET price = 999999 WHERE id = ?').run(service1.id);
+backend\src\test_stylist_payouts_e2e.ts:231:    db.prepare("UPDATE settings SET value = '25.0' WHERE key = 'default_profit_margin_percent'").run();
+backend\src\test_stylist_payouts_e2e.ts:251:    db.prepare('UPDATE services SET price = 100000 WHERE id = ?').run(service1.id);
+backend\src\test_variants_payouts_reversion_e2e.ts:208:    const revertAudit = db.prepare("SELECT * FROM audit_logs WHERE action = 'revert_payout' AND target_id = ?").get(createdPayout.id) as any;
+backend\src\test_variants_payouts_reversion_e2e.ts:243:    const originalSaleCheck = db.prepare('SELECT id, status, total FROM sales WHERE id = ?').get(serviceToExclude.sale_id) as any;
+backend\src\test_variants_payouts_reversion_e2e.ts:250:    const singleDeleteAudit = db.prepare("SELECT * FROM audit_logs WHERE action = 'delete_pending_commission' AND target_id = ?").get(serviceToExclude.commission_id) as any;
+backend\src\test_variants_payouts_reversion_e2e.ts:346:    const bulkAudit = db.prepare("SELECT * FROM audit_logs WHERE action = 'delete_all_pending_commissions' AND target_id = ?").get(stylistValeria.id) as any;
