@@ -1,4 +1,3 @@
-
 {
   "name": "elite-studio-pos",
   "version": "1.0.0",
@@ -22,5 +21,8 @@
   "devDependencies": {
     "concurrently": "^9.1.2",
     "rimraf": "^6.1.3"
+  },
+  "dependencies": {
+    "cors": "^2.8.6"
   }
 }
