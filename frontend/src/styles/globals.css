@@ -260,20 +260,18 @@ html.dark .pos-interactive-card:hover {
   box-shadow: none !important;
 }
 
-/* Hover en Modo Claro: resalta el cuadro completo con borde violeta y fondo contrastante sin ser tapado */
+
+/* Hover en Modo Claro: borde violeta hacia adentro, no se recorta */
 html:not(.dark) .pos-interactive-card:hover {
   background-color: #f5f4fe !important;
   border-color: #5b63f6 !important;
-  box-shadow: 0 0 0 1.5px #5b63f6, 0 4px 14px -2px rgba(91, 99, 246, 0.2) !important;
+  box-shadow: inset 0 0 0 1px #5b63f6 !important;
 }
 
-/* Items seleccionables en Modales (Precio y Estilista) */
-.modal-selectable-item {
-  position: relative;
-  transition: border-color 0.15s ease,
-              background-color 0.15s ease,
-              box-shadow 0.15s ease,
-              color 0.15s ease;
+html:not(.dark) .modal-selectable-item:hover {
+  background-color: #f5f4fe !important;
+  border-color: #5b63f6 !important;
+  box-shadow: inset 0 0 0 1px #5b63f6 !important;
 }
 
 .modal-selectable-item:hover {
