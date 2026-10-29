@@ -833,38 +833,6 @@ export const InventoryView: React.FC = () => {
 
             <div className="space-y-3 mb-5 text-xs">
               <div>
-                <label className="text-slate-700 dark:text-slate-300 block mb-1 font-semibold">
-                  Destino en el Menú de Ventas *
-                </label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setProductType('salon')}
-                    className={`py-1.5 px-2.5 rounded-lg font-semibold transition cursor-pointer text-xs flex items-center justify-center gap-1.5 ${
-                      productType === 'salon'
-                        ? 'bg-white dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <Package className="w-3.5 h-3.5" />
-                    <span>Producto de Salón</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProductType('article')}
-                    className={`py-1.5 px-2.5 rounded-lg font-semibold transition cursor-pointer text-xs flex items-center justify-center gap-1.5 ${
-                      productType === 'article'
-                        ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <Coffee className="w-3.5 h-3.5" />
-                    <span>Artículo (Café / Dulces)</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
                 <label className="text-slate-700 dark:text-slate-400 block mb-1 font-semibold">
                   {productType === 'article' ? 'Nombre del Artículo *' : 'Nombre del Producto *'}
                 </label>
