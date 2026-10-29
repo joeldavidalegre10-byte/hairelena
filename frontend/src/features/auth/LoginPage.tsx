@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Scissors, Sun, Moon, ShieldCheck, UserCheck, Lock, User } from 'lucide-react';
+import { Sun, Moon, Lock, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
 export const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const { loginUser, theme, toggleTheme } = useApp();
@@ -21,11 +21,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const setQuickUser = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
   };
 
   return (
@@ -71,9 +66,10 @@ export const LoginPage: React.FC = () => {
               <input
                 type="text"
                 required
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ingresa tu usuario (ej. admin)"
+                placeholder="Ingresa tu usuario"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#5b63f6] focus:ring-1 focus:ring-[#5b63f6]"
               />
             </div>
@@ -88,6 +84,7 @@ export const LoginPage: React.FC = () => {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -104,31 +101,6 @@ export const LoginPage: React.FC = () => {
             Iniciar Sesión
           </Button>
         </form>
-
-        {/* Acceso Rápido por Defecto (admin / admin y caja / caja) */}
-        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800/80">
-          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 text-center">
-            Acceso Rápido por Defecto
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setQuickUser('admin', 'admin')}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-[11px] font-medium text-slate-700 dark:text-slate-300 transition cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Admin (admin)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setQuickUser('caja', 'caja')}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-[11px] font-medium text-slate-700 dark:text-slate-300 transition cursor-pointer"
-            >
-              <UserCheck className="w-3.5 h-3.5 text-cyan-500" />
-              <span>Cajero (caja)</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
