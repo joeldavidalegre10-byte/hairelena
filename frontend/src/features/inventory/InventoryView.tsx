@@ -10,11 +10,7 @@ import { useApp } from '../../context/AppContext';
 type VariantRow = { id?: string; name: string; price: number };
 type DeleteTarget = { kind: 'service' | 'product'; id: string; name: string } | null;
 
-const DEFAULT_VARIANTS: VariantRow[] = [
-  { name: 'Niño', price: 0 },
-  { name: 'Joven', price: 0 },
-  { name: 'Adulto', price: 0 },
-];
+const DEFAULT_VARIANTS: VariantRow[] = [{ name: '', price: 0 }];
 
 const ARTICLE_CATEGORY_ID = 'cat-cafe-01';
 
@@ -702,7 +698,7 @@ export const InventoryView: React.FC = () => {
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
-                    Múltiples Opciones (Niño, Joven, Adulto...)
+                    Múltiples Opciones
                   </button>
                 </div>
               </div>
