@@ -2,6 +2,20 @@ import crypto from 'node:crypto';
 import { getDb } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
 
+// MySQL devuelve las columnas DECIMAL como texto ("10.000").
+// Este helper las convierte a número para que las sumas y comparaciones funcionen.
+const normalizeProduct = (r: any) => {
+  if (!r) return r;
+  return {
+    ...r,
+    stock: Number(r.stock) || 0,
+    min_stock: Number(r.min_stock) || 0,
+    cost_price: Number(r.cost_price) || 0,
+    sale_price: Number(r.sale_price) || 0,
+    is_active: Boolean(r.is_active),
+  };
+};
+
 export class InventoryService {
   // Categorías
   static async listCategories() {
@@ -216,10 +230,7 @@ export class InventoryService {
       ORDER BY p.name ASC
     `).all()) as any[];
 
-    return rows.map((r) => ({
-      ...r,
-      is_active: Boolean(r.is_active),
-    }));
+    return rows.map(normalizeProduct);
   }
 
   static async createProduct(payload: {
@@ -273,7 +284,8 @@ export class InventoryService {
       now
     );
 
-    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    const created = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    return normalizeProduct(created);
   }
 
   static async updateProduct(id: string, payload: {
@@ -342,17 +354,25 @@ export class InventoryService {
       await db.prepare(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`).run(...values);
     }
 
-    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    return normalizeProduct(updated);
   }
 
   static async adjustStock(id: string, adjustment: number) {
     const db = getDb();
-    const product = (await db.prepare('SELECT id, stock FROM products WHERE id = ?').get(id)) as { id: string; stock: number } | undefined;
+    const product = (await db.prepare('SELECT id, stock FROM products WHERE id = ?').get(id)) as
+      | { id: string; stock: number | string }
+      | undefined;
     if (!product) throw new AppError('Producto no encontrado', 404);
 
-    const newStock = Math.max(0, product.stock + adjustment);
+    // El stock llega como texto desde MySQL (DECIMAL): se convierte a número antes de sumar
+    const currentStock = Number(product.stock) || 0;
+    const delta = Number(adjustment) || 0;
+    const newStock = Math.max(0, currentStock + delta);
+
     await db.prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?").run(newStock, id);
 
-    return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    const updated = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    return normalizeProduct(updated);
   }
 }

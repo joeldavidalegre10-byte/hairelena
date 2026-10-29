@@ -1,6 +1,20 @@
 import crypto from 'node:crypto';
 import { getDb } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
+// MySQL devuelve las columnas DECIMAL como texto ("10.000").
+// Este helper las convierte a número para que las sumas y comparaciones funcionen.
+const normalizeProduct = (r) => {
+    if (!r)
+        return r;
+    return {
+        ...r,
+        stock: Number(r.stock) || 0,
+        min_stock: Number(r.min_stock) || 0,
+        cost_price: Number(r.cost_price) || 0,
+        sale_price: Number(r.sale_price) || 0,
+        is_active: Boolean(r.is_active),
+    };
+};
 export class InventoryService {
     // Categorías
     static async listCategories() {
@@ -156,10 +170,7 @@ export class InventoryService {
       LEFT JOIN categories c ON p.category_id = c.id
       ORDER BY p.name ASC
     `).all());
-        return rows.map((r) => ({
-            ...r,
-            is_active: Boolean(r.is_active),
-        }));
+        return rows.map(normalizeProduct);
     }
     static async createProduct(payload) {
         const db = getDb();
@@ -187,7 +198,8 @@ export class InventoryService {
       INSERT INTO products (id, category_id, name, barcode, sku, description, cost_price, sale_price, stock, min_stock, is_active, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).run(id, payload.category_id || null, payload.name, barcode, sku, payload.description || null, payload.cost_price || 0, payload.sale_price || 0, payload.stock || 0, payload.min_stock ?? 5, now, now);
-        return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        const created = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        return normalizeProduct(created);
     }
     static async updateProduct(id, payload) {
         const db = getDb();
@@ -241,15 +253,20 @@ export class InventoryService {
             values.push(id);
             await db.prepare(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`).run(...values);
         }
-        return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        const updated = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        return normalizeProduct(updated);
     }
     static async adjustStock(id, adjustment) {
         const db = getDb();
         const product = (await db.prepare('SELECT id, stock FROM products WHERE id = ?').get(id));
         if (!product)
             throw new AppError('Producto no encontrado', 404);
-        const newStock = Math.max(0, product.stock + adjustment);
+        // El stock llega como texto desde MySQL (DECIMAL): se convierte a número antes de sumar
+        const currentStock = Number(product.stock) || 0;
+        const delta = Number(adjustment) || 0;
+        const newStock = Math.max(0, currentStock + delta);
         await db.prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?").run(newStock, id);
-        return await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        const updated = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        return normalizeProduct(updated);
     }
 }

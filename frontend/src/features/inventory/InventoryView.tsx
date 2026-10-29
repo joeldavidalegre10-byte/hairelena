@@ -39,21 +39,29 @@ export const InventoryView: React.FC = () => {
     loadData();
   }, []);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [srv, prd] = await Promise.all([
-        inventoryService.listServices(),
-        inventoryService.listProducts(),
-      ]);
-      setServices(srv || []);
-      setProducts(prd || []);
-    } catch (err: any) {
-      notify('Error cargando catálogo: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+const loadData = async () => {
+  try {
+    setLoading(true);
+    const [srv, prd] = await Promise.all([
+      inventoryService.listServices(),
+      inventoryService.listProducts(),
+    ]);
+    setServices(srv || []);
+    setProducts(
+      (prd || []).map((p: any) => ({
+        ...p,
+        stock: Number(p.stock) || 0,
+        min_stock: Number(p.min_stock) || 0,
+        cost_price: Number(p.cost_price) || 0,
+        sale_price: Number(p.sale_price) || 0,
+      }))
+    );
+  } catch (err: any) {
+    notify('Error cargando catálogo: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const isArticle = (p: ProductItem) => {
     return (
