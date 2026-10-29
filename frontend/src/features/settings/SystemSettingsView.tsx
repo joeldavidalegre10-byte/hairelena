@@ -1,31 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { usersService, CreateUserData } from '../../services/users.service';
-import { User, UserRole } from '../../types';
-import { AppearanceSettingsSection } from './AppearanceSettingsSection';
+import { User } from '../../types';
 import {
   Settings,
-  Palette,
   Users,
   UserPlus,
   Shield,
   UserCheck,
-  Lock,
   KeyRound,
-  CheckCircle2,
   AlertCircle,
-  Eye,
-  EyeOff,
   Search,
-  Check,
-  X,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 
 export const SystemSettingsView: React.FC = () => {
   const { user: currentUser, notify } = useApp();
-  const [activeTab, setActiveTab] = useState<'appearance' | 'users'>('appearance');
 
   // Estado de lista de usuarios
   const [users, setUsers] = useState<User[]>([]);
@@ -51,10 +42,8 @@ export const SystemSettingsView: React.FC = () => {
   const [passwordError, setPasswordError] = useState<string>('');
 
   useEffect(() => {
-    if (activeTab === 'users') {
-      loadUsers();
-    }
-  }, [activeTab]);
+    loadUsers();
+  }, []);
 
   const loadUsers = async () => {
     try {
@@ -167,212 +156,178 @@ export const SystemSettingsView: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-y-auto transition-colors duration-200">
-      {/* CABECERA PRINCIPAL CON NAVEGACIÓN */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            Configuración del Sistema
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Personalización visual (modo claro/oscuro) y administración de usuarios y administradores
-          </p>
-        </div>
-
-        {/* SELECTOR DE PESTAÑAS */}
-        <div className="flex items-center bg-slate-200/80 dark:bg-[#121318] p-1 rounded-xl border border-slate-300 dark:border-[#1f2128]">
-          <button
-            type="button"
-            onClick={() => setActiveTab('appearance')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'appearance'
-                ? 'bg-[#5b63f6] text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            Apariencia y Modo Visual
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-[#5b63f6] text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Administradores y Usuarios
-          </button>
-        </div>
+      {/* CABECERA PRINCIPAL */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          Configuración del Sistema
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Administración de usuarios y administradores
+        </p>
       </div>
 
       <div className="space-y-6 max-w-6xl">
-        {activeTab === 'appearance' ? (
-          <AppearanceSettingsSection />
-        ) : (
-          <div className="space-y-5">
-            {/* BARRA SUPERIOR DE GESTIÓN DE USUARIOS */}
-            <div className="bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre de usuario, nombre o rol..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-[#1f2128] rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#5b63f6]"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenCreateModal}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#5b63f6] hover:bg-[#4f55e3] text-white text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Crear Nuevo Usuario / Admin</span>
-              </button>
+        <div className="space-y-5">
+          {/* BARRA SUPERIOR DE GESTIÓN DE USUARIOS */}
+          <div className="bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre de usuario, nombre o rol..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-[#1f2128] rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#5b63f6]"
+              />
             </div>
 
-            {/* TABLA DE USUARIOS REGISTRADOS */}
-            <div className="bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] rounded-2xl shadow-xs overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-200 dark:border-[#1f2128] flex items-center justify-between">
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#5b63f6]" />
-                  Usuarios Registrados en el Sistema
-                </h3>
-                <span className="text-xs text-slate-400">
-                  {filteredUsers.length} {filteredUsers.length === 1 ? 'cuenta' : 'cuentas'}
-                </span>
-              </div>
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#5b63f6] hover:bg-[#4f55e3] text-white text-xs font-bold shadow-xs transition cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Crear Nuevo Usuario / Admin</span>
+            </button>
+          </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-[#14151b] border-b border-slate-200 dark:border-[#1f2128] text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+          {/* TABLA DE USUARIOS REGISTRADOS */}
+          <div className="bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] rounded-2xl shadow-xs overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-[#1f2128] flex items-center justify-between">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#5b63f6]" />
+                Usuarios Registrados en el Sistema
+              </h3>
+              <span className="text-xs text-slate-400">
+                {filteredUsers.length} {filteredUsers.length === 1 ? 'cuenta' : 'cuentas'}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-[#14151b] border-b border-slate-200 dark:border-[#1f2128] text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Usuario</th>
+                    <th className="py-3 px-4">Nombre Completo</th>
+                    <th className="py-3 px-4">Rol en el Sistema</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#1a1b20]">
+                  {loadingUsers ? (
                     <tr>
-                      <th className="py-3 px-4">Usuario</th>
-                      <th className="py-3 px-4">Nombre Completo</th>
-                      <th className="py-3 px-4">Rol en el Sistema</th>
-                      <th className="py-3 px-4">Estado</th>
-                      <th className="py-3 px-4 text-right">Acciones</th>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        Cargando usuarios...
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-[#1a1b20]">
-                    {loadingUsers ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
-                          Cargando usuarios...
-                        </td>
-                      </tr>
-                    ) : filteredUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
-                          No se encontraron usuarios registrados.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredUsers.map((u) => {
-                        const isAdmin = u.role === 'admin';
-                        const isSelf = u.id === currentUser?.id;
+                  ) : filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        No se encontraron usuarios registrados.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u) => {
+                      const isAdmin = u.role === 'admin';
+                      const isSelf = u.id === currentUser?.id;
 
-                        return (
-                          <tr
-                            key={u.id}
-                            className="hover:bg-slate-50/70 dark:hover:bg-[#161720] transition-colors"
-                          >
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                                  isAdmin
-                                    ? 'bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148]'
-                                    : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                                }`}>
-                                  {u.username ? u.username[0].toUpperCase() : u.full_name[0].toUpperCase()}
-                                </div>
-                                <div>
-                                  <span className="font-extrabold text-slate-900 dark:text-white font-mono block">
-                                    {u.username || u.email.split('@')[0]}
-                                  </span>
-                                  {isSelf && (
-                                    <span className="text-[9px] text-[#5b63f6] dark:text-[#818cf8] font-semibold">
-                                      (Tú - Sesión actual)
-                                    </span>
-                                  )}
-                                </div>
+                      return (
+                        <tr
+                          key={u.id}
+                          className="hover:bg-slate-50/70 dark:hover:bg-[#161720] transition-colors"
+                        >
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                isAdmin
+                                  ? 'bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148]'
+                                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                              }`}>
+                                {u.username ? u.username[0].toUpperCase() : u.full_name[0].toUpperCase()}
                               </div>
-                            </td>
-
-                            <td className="py-3.5 px-4 font-medium text-slate-700 dark:text-slate-300">
-                              {u.full_name}
-                            </td>
-
-                            <td className="py-3.5 px-4">
-                              {isAdmin ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148]">
-                                  <Shield className="w-3 h-3" />
-                                  Administrador
+                              <div>
+                                <span className="font-extrabold text-slate-900 dark:text-white font-mono block">
+                                  {u.username || u.email.split('@')[0]}
                                 </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                  <UserCheck className="w-3 h-3" />
-                                  Cajero
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3.5 px-4">
-                              {u.is_active ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  Activo
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                  Inactivo
-                                </span>
-                              )}
-                            </td>
-
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPasswordModal(u)}
-                                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#1f2128] hover:border-[#5b63f6] dark:hover:border-[#5b63f6] text-slate-600 dark:text-slate-300 text-[11px] font-medium transition cursor-pointer flex items-center gap-1"
-                                  title="Cambiar contraseña"
-                                >
-                                  <KeyRound className="w-3 h-3 text-[#5b63f6]" />
-                                  <span>Clave</span>
-                                </button>
-
-                                {!isSelf && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleUserStatus(u)}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
-                                      u.is_active
-                                        ? 'border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                                        : 'border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                                    }`}
-                                  >
-                                    {u.is_active ? 'Desactivar' : 'Activar'}
-                                  </button>
+                                {isSelf && (
+                                  <span className="text-[9px] text-[#5b63f6] dark:text-[#818cf8] font-semibold">
+                                    (Tú - Sesión actual)
+                                  </span>
                                 )}
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-medium text-slate-700 dark:text-slate-300">
+                            {u.full_name}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {isAdmin ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148]">
+                                <Shield className="w-3 h-3" />
+                                Administrador
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                <UserCheck className="w-3 h-3" />
+                                Cajero
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {u.is_active ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Activo
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                Inactivo
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPasswordModal(u)}
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#1f2128] hover:border-[#5b63f6] dark:hover:border-[#5b63f6] text-slate-600 dark:text-slate-300 text-[11px] font-medium transition cursor-pointer flex items-center gap-1"
+                                title="Cambiar contraseña"
+                              >
+                                <KeyRound className="w-3 h-3 text-[#5b63f6]" />
+                                <span>Clave</span>
+                              </button>
+
+                              {!isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUserStatus(u)}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
+                                    u.is_active
+                                      ? 'border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                                      : 'border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                                  }`}
+                                >
+                                  {u.is_active ? 'Desactivar' : 'Activar'}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ========================================================================= */}
