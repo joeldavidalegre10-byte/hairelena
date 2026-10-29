@@ -239,70 +239,52 @@ html.dark[data-theme="elite-pos"] table tbody tr:hover {
 
 /* =============================================================================
    CUADROS INTERACTIVOS Y TRANSICIÓN DE COLORES ELEGANTE (SIN REDUNDANCIA)
-   Resalta sutilmente los colores al pasar el cursor (borde y acentos violetas),
-   sin saltos físicos (translateY) ni anillos pesados redundantes.
+   Resalta sutilmente los colores al pasar el cursor (solo borde y fondo),
+   sin saltos físicos (translateY), sin sombras externas y sin anillos.
+   Mismo comportamiento en modo oscuro y modo claro (nada se recorta).
    ============================================================================= */
-.pos-interactive-card {
+.pos-interactive-card,
+.modal-selectable-item {
   position: relative;
   transition: border-color 0.15s ease,
-              background-color 0.15s ease,
-              box-shadow 0.15s ease;
+              background-color 0.15s ease;
 }
 
-.pos-interactive-card:hover {
-  position: relative !important;
-  z-index: 25 !important;
-}
-
-html.dark .pos-interactive-card:hover {
-  background-color: #161824 !important;
-  border-color: #5b63f6 !important;
-  box-shadow: none !important;
-}
-
-
-/* Hover en Modo Claro: borde violeta hacia adentro, no se recorta */
-html:not(.dark) .pos-interactive-card:hover {
-  background-color: #f5f4fe !important;
-  border-color: #5b63f6 !important;
-  box-shadow: inset 0 0 0 1px #5b63f6 !important;
-}
-
-html:not(.dark) .modal-selectable-item:hover {
-  background-color: #f5f4fe !important;
-  border-color: #5b63f6 !important;
-  box-shadow: inset 0 0 0 1px #5b63f6 !important;
-}
-
+.pos-interactive-card:hover,
 .modal-selectable-item:hover {
   position: relative !important;
   z-index: 25 !important;
 }
 
+/* ---------- MODO OSCURO ---------- */
 html.dark .modal-selectable-item {
   background-color: #121318 !important;
   border-color: #1f2128 !important;
 }
 
+html.dark .pos-interactive-card:hover,
 html.dark .modal-selectable-item:hover {
   background-color: #161824 !important;
   border-color: #5b63f6 !important;
   box-shadow: none !important;
 }
 
+/* ---------- MODO CLARO (idéntico al oscuro: solo borde + fondo) ---------- */
 html:not(.dark) .modal-selectable-item {
   background-color: #ffffff !important;
   border-color: #e8edf4 !important;
 }
 
-/* Hover en Modo Claro para items en modales */
-html:not(.dark) .modal-selectable-item:hover {
+html:not(.dark) .pos-interactive-card:hover,
+html:not(.dark) .modal-selectable-item:hover,
+html:not(.dark)[data-theme="elite-pos"] .pos-interactive-card:hover,
+html:not(.dark)[data-theme="elite-pos"] .modal-selectable-item:hover {
   background-color: #f5f4fe !important;
   border-color: #5b63f6 !important;
-  box-shadow: 0 0 0 1.5px #5b63f6, 0 4px 14px -2px rgba(91, 99, 246, 0.2) !important;
+  box-shadow: none !important;
 }
 
-/* Marcaje sutil del estilista/item seleccionado: fondo oscuro con sutil tinte violeta (NUNCA blanco) */
+/* Marcaje sutil del estilista/item seleccionado */
 html.dark .modal-selectable-item.is-selected,
 html.dark .is-selected {
   background-color: #161826 !important;
@@ -311,7 +293,9 @@ html.dark .is-selected {
 }
 
 html:not(.dark) .modal-selectable-item.is-selected,
-html:not(.dark) .is-selected {
+html:not(.dark) .is-selected,
+html:not(.dark)[data-theme="elite-pos"] .modal-selectable-item.is-selected,
+html:not(.dark)[data-theme="elite-pos"] .is-selected {
   background-color: #f0f2ff !important;
   border-color: #5b63f6 !important;
   box-shadow: none !important;
