@@ -40,7 +40,7 @@ export const AppearanceSettingsSection: React.FC = () => {
               Personalización Visual y Apariencia
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Sistema de diseño profesional <strong>Élite Studio POS</strong> con cuadros rectangulares compactos, bordes nítidos de 1px, acentos violetas y modo oscuro en negro neutro puro (sin tonos azul marino).
+              Sistema de diseño profesional <strong>HAIR ELENA</strong> con cuadros rectangulares compactos, bordes nítidos de 1px, acentos violetas y modo oscuro en negro neutro puro (sin tonos azul marino).
             </p>
           </div>
 
@@ -51,7 +51,7 @@ export const AppearanceSettingsSection: React.FC = () => {
                 Tema y Modo Activos
               </span>
               <span className="text-xs font-bold text-[#5b63f6] dark:text-[#818cf8]">
-                Élite Studio POS • {theme === 'dark' ? 'Modo Oscuro (Negro Puro)' : 'Modo Claro (Gris Perla)'}
+                HAIR ELENA • {theme === 'dark' ? 'Modo Oscuro (Negro Puro)' : 'Modo Claro (Gris Perla)'}
               </span>
             </div>
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
