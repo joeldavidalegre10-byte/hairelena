@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Sun, Moon, Lock, User } from 'lucide-react';
+import { Scissors, Sun, Moon, Lock, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
 export const LoginPage: React.FC = () => {
@@ -40,10 +40,10 @@ export const LoginPage: React.FC = () => {
         {/* Logo & Encabezado */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-[#5b63f6] flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-indigo-500/25 mb-4">
-            É
+            <Scissors className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Élite Studio POS
+            HAIR ELENA
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Gestión y Punto de Venta Profesional para Salón
