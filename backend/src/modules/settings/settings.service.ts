@@ -17,24 +17,24 @@ export class SettingsService {
 
   static async get(key: string, defaultValue: string = ''): Promise<string> {
     const db = getDb();
-    const row = (await db.prepare('SELECT value FROM settings WHERE key = ?').get(key)) as { value: string } | undefined;
+    const row = (await db.prepare('SELECT value FROM settings WHERE `key` = ?').get(key)) as { value: string } | undefined;
     return row ? row.value : defaultValue;
   }
 
   static async set(key: string, value: string): Promise<void> {
     const db = getDb();
     const now = new Date().toISOString();
-    const existing = await db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
+    const existing = await db.prepare('SELECT `key` FROM settings WHERE `key` = ?').get(key);
     if (existing) {
-      await db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?').run(String(value), now, key);
+      await db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE `key` = ?').run(String(value), now, key);
     } else {
-      await db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(key, String(value), now);
+      await db.prepare('INSERT INTO settings (`key`, value, updated_at) VALUES (?, ?, ?)').run(key, String(value), now);
     }
   }
 
   static async getAll(): Promise<Record<string, any>> {
     const db = getDb();
-    const rows = (await db.prepare('SELECT key, value FROM settings').all()) as Array<{ key: string; value: string }>;
+    const rows = (await db.prepare('SELECT `key`, value FROM settings').all()) as Array<{ key: string; value: string }>;
     const result: Record<string, any> = {
       default_profit_margin_percent: 60.0,
     };

@@ -17,23 +17,23 @@ export class SettingsService {
     }
     static async get(key, defaultValue = '') {
         const db = getDb();
-        const row = (await db.prepare('SELECT value FROM settings WHERE key = ?').get(key));
+        const row = (await db.prepare('SELECT value FROM settings WHERE `key` = ?').get(key));
         return row ? row.value : defaultValue;
     }
     static async set(key, value) {
         const db = getDb();
         const now = new Date().toISOString();
-        const existing = await db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
+        const existing = await db.prepare('SELECT `key` FROM settings WHERE `key` = ?').get(key);
         if (existing) {
-            await db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?').run(String(value), now, key);
+            await db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE `key` = ?').run(String(value), now, key);
         }
         else {
-            await db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(key, String(value), now);
+            await db.prepare('INSERT INTO settings (`key`, value, updated_at) VALUES (?, ?, ?)').run(key, String(value), now);
         }
     }
     static async getAll() {
         const db = getDb();
-        const rows = (await db.prepare('SELECT key, value FROM settings').all());
+        const rows = (await db.prepare('SELECT `key`, value FROM settings').all());
         const result = {
             default_profit_margin_percent: 60.0,
         };

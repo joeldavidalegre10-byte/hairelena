@@ -56,19 +56,10 @@ const DB_TIMEZONE = (process.env.DB_TIMEZONE || '+00:00').trim();
 if (!/^(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/.test(DB_TIMEZONE)) {
     throw new Error(`DB_TIMEZONE debe tener formato "+00:00" o "-03:00" (valor recibido: "${DB_TIMEZONE}").`);
 }
-
-// En desarrollo se permiten los puertos locales de Vite; en producción
-// CLIENT_URL es obligatorio y no puede apuntar a localhost.
-const DEV_CLIENT_URLS = 'http://localhost:5173,http://localhost:5174';
-const rawClientUrl = process.env.CLIENT_URL?.trim();
-if (isProduction && !rawClientUrl) {
-    throw new Error('Falta CLIENT_URL en producción. Define la URL de tu frontend (ej: https://hairelena.com).');
+const CLIENT_URL = process.env.CLIENT_URL?.trim() || 'http://localhost:5173';
+if (isProduction && !process.env.CLIENT_URL?.trim()) {
+    throw new Error('Falta CLIENT_URL en producción. Define la URL de tu frontend.');
 }
-if (isProduction && /localhost|127\.0\.0\.1/i.test(rawClientUrl)) {
-    throw new Error('CLIENT_URL no puede apuntar a localhost en producción. Usa tu dominio (ej: https://hairelena.com).');
-}
-const CLIENT_URL = rawClientUrl || DEV_CLIENT_URLS;
-
 if (isProduction && DB_TYPE === 'mysql' && !process.env.DB_PASSWORD) {
     throw new Error('Falta DB_PASSWORD en producción con MySQL.');
 }
