@@ -3,7 +3,7 @@ import { stylistsService } from '../../services/stylists.service';
 import { api } from '../../services/api';
 import { Stylist, Commission } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
-import { Users, Plus, Percent, DollarSign, X, Trash2 } from 'lucide-react';
+import { Users, Plus, Percent, DollarSign, X, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { StylistPaymentsView } from './StylistPaymentsView';
 
@@ -18,6 +18,9 @@ export const StylistsView: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [commissionRate, setCommissionRate] = useState<number>(40);
   const [specialtyList, setSpecialtyList] = useState<string[]>(['']);
+  const [editingStylist, setEditingStylist] = useState<Stylist | null>(null);
+  const [stylistToDelete, setStylistToDelete] = useState<Stylist | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { notify } = useApp();
 
   useEffect(() => {
@@ -58,27 +61,75 @@ export const StylistsView: React.FC = () => {
     setSpecialtyList(specialtyList.filter((_, i) => i !== index));
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setName('');
+    setEmail('');
+    setPhone('');
+    setCommissionRate(40);
+    setSpecialtyList(['']);
+    setEditingStylist(null);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    resetForm();
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (st: Stylist) => {
+    setEditingStylist(st);
+    setName(st.full_name);
+    setEmail(st.email || '');
+    setPhone(st.phone || '');
+    setCommissionRate(Number(st.commission_rate));
+    setSpecialtyList(st.specialties && st.specialties.length > 0 ? [...st.specialties] : ['']);
+    setShowAddModal(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     try {
       const validSpecialties = specialtyList.map((s) => s.trim()).filter(Boolean);
-      await stylistsService.create({
+      const payload = {
         full_name: name.trim(),
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
         commission_rate: Number(commissionRate),
         specialties: validSpecialties,
-      });
-      notify('Estilista registrado exitosamente', 'success');
-      setShowAddModal(false);
-      setName('');
-      setEmail('');
-      setPhone('');
-      setSpecialtyList(['']);
+      };
+
+      if (editingStylist) {
+        await stylistsService.update(editingStylist.id, payload);
+        notify('Estilista actualizado correctamente', 'success');
+      } else {
+        await stylistsService.create(payload);
+        notify('Estilista registrado exitosamente', 'success');
+      }
+
+      closeModal();
       loadData();
     } catch (err: any) {
       notify('Error: ' + err.message, 'error');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!stylistToDelete) return;
+    try {
+      setIsDeleting(true);
+      await stylistsService.remove(stylistToDelete.id);
+      notify(`Estilista «${stylistToDelete.full_name}» eliminado`, 'success');
+      setStylistToDelete(null);
+      loadData();
+    } catch (err: any) {
+      notify('Error: ' + err.message, 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -125,7 +176,7 @@ export const StylistsView: React.FC = () => {
 
           {activeTab === 'staff' && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openCreateModal}
               className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-sm shadow-indigo-600/20"
             >
               <Plus className="w-4 h-4" />
@@ -215,6 +266,23 @@ export const StylistsView: React.FC = () => {
                         <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Comisión Pendiente:</span>
                         <span className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(pendingSum)}</span>
                       </div>
+                      <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(st)}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition cursor-pointer"
+                        title="Editar estilista"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStylistToDelete(st)}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-500/50 transition cursor-pointer"
+                        title="Eliminar estilista"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={async () => {
                           try {
@@ -233,6 +301,7 @@ export const StylistsView: React.FC = () => {
                       >
                         {st.is_active ? 'Desactivar' : 'Activar'}
                       </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -245,12 +314,14 @@ export const StylistsView: React.FC = () => {
       {/* MODAL CREAR ESTILISTA */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleCreate} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Registrar Estilista / Barbero</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {editingStylist ? 'Editar Estilista / Barbero' : 'Registrar Estilista / Barbero'}
+              </h3>
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
+                onClick={closeModal}
                 className="p-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer transition"
               >
                 <X className="w-4 h-4" />
@@ -345,7 +416,7 @@ export const StylistsView: React.FC = () => {
             <div className="flex justify-end gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
+                onClick={closeModal}
                 className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Cancelar
@@ -354,12 +425,65 @@ export const StylistsView: React.FC = () => {
                 type="submit"
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl cursor-pointer"
               >
-                Registrar
+                {editingStylist ? 'Guardar Cambios' : 'Registrar'}
               </button>
             </div>
           </form>
         </div>
       )}
+
+      {/* MODAL CONFIRMAR ELIMINACIÓN */}
+      {stylistToDelete && (() => {
+        const pendingSum = commissions
+          .filter((c) => c.stylist_id === stylistToDelete.id && c.status === 'pending')
+          .reduce((acc, c) => acc + c.amount, 0);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Eliminar estilista</h3>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                Vas a eliminar a <strong className="text-slate-900 dark:text-white">{stylistToDelete.full_name}</strong>. Esta acción no se puede deshacer.
+              </p>
+
+              {pendingSum > 0 && (
+                <p className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-xs text-amber-700 dark:text-amber-400">
+                  Tiene <strong>{formatCurrency(pendingSum)}</strong> en comisiones pendientes que se perderán al eliminarlo.
+                </p>
+              )}
+
+              <p className="mt-3 text-[11px] text-slate-400">
+                Si solo quieres que deje de aparecer en el sistema, usa «Desactivar». Si tiene pagos o liquidaciones registrados, no se podrá eliminar.
+              </p>
+
+              <div className="flex justify-end gap-2 text-xs mt-5">
+                <button
+                  type="button"
+                  onClick={() => setStylistToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white font-semibold rounded-xl cursor-pointer"
+                >
+                  {isDeleting ? 'Eliminando...' : 'Sí, eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

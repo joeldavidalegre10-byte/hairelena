@@ -10,5 +10,6 @@ router.get('/', StylistsController.list);
 router.get('/:id', StylistsController.getById);
 router.post('/', authorize(['admin']), StylistsController.create);
 router.put('/:id', authorize(['admin']), StylistsController.update);
+router.delete('/:id', authorize(['admin']), StylistsController.remove);
 
 export default router;

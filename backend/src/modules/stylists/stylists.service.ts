@@ -120,4 +120,51 @@ export class StylistsService {
 
     return this.getById(id);
   }
+
+  /**
+   * Elimina un estilista. Si ya tiene pagos/liquidaciones registrados se bloquea
+   * para no perder el historial contable (en ese caso conviene desactivarlo).
+   * Las comisiones pendientes y los márgenes personalizados se eliminan con él.
+   */
+  static async remove(id: string, userId?: string) {
+    const db = getDb();
+    const stylist = (await db.prepare('SELECT id, full_name FROM stylists WHERE id = ?').get(id)) as any;
+    if (!stylist) {
+      throw new AppError('Estilista no encontrado', 404);
+    }
+
+    const payouts = (await db.prepare('SELECT COUNT(*) AS c FROM stylist_payouts WHERE stylist_id = ?').get(id)) as any;
+    const paid = (await db.prepare("SELECT COUNT(*) AS c FROM commissions WHERE stylist_id = ? AND status = 'paid'").get(id)) as any;
+
+    if (Number(payouts?.c || 0) > 0 || Number(paid?.c || 0) > 0) {
+      throw new AppError(
+        'No se puede eliminar: el estilista tiene pagos o liquidaciones registrados. Desactívalo en su lugar para conservar el historial.',
+        409
+      );
+    }
+
+    await db.prepare('DELETE FROM commissions WHERE stylist_id = ?').run(id);
+    await db.prepare('DELETE FROM service_stylist_margins WHERE stylist_id = ?').run(id);
+    await db.prepare('UPDATE sale_items SET stylist_id = NULL WHERE stylist_id = ?').run(id);
+    await db.prepare('DELETE FROM stylists WHERE id = ?').run(id);
+
+    try {
+      const user = userId
+        ? ((await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any)
+        : null;
+      await db.prepare(`
+        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
+        VALUES (?, 'delete_stylist', 'stylist', ?, ?, ?, ?, ?)
+      `).run(
+        `aud-${crypto.randomUUID().slice(0, 8)}`,
+        id,
+        userId || null,
+        user?.full_name || 'Administrador del sistema',
+        `Estilista «${stylist.full_name}» eliminado`,
+        new Date().toISOString()
+      );
+    } catch {
+      // La auditoría nunca debe impedir la eliminación
+    }
+  }
 }

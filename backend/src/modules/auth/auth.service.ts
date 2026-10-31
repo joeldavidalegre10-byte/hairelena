@@ -112,4 +112,31 @@ export class AuthService {
 
     return false;
   }
-} 
+
+  /**
+   * Igual que verifyAdminPassword, pero devuelve qué administrador autorizó
+   * (para dejar constancia en la auditoría). Devuelve null si ninguna coincide.
+   */
+  static async verifyAdminWithUser(
+    password?: string
+  ): Promise<{ id: string; fullName: string } | null> {
+    if (!password || typeof password !== 'string') {
+      return null;
+    }
+
+    const db = getDb();
+    const adminUsers = (await db.prepare(`
+      SELECT id, full_name, password_hash
+      FROM users
+      WHERE role = 'admin' AND is_active = 1
+    `).all()) as { id: string; full_name: string; password_hash: string }[];
+
+    for (const admin of adminUsers) {
+      if (admin.password_hash && (await bcrypt.compare(password, admin.password_hash))) {
+        return { id: admin.id, fullName: admin.full_name };
+      }
+    }
+
+    return null;
+  }
+}

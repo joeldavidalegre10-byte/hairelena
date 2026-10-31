@@ -52,4 +52,13 @@ export class StylistsController {
       next(error);
     }
   }
+
+  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await StylistsService.remove(req.params.id, req.user?.id);
+      res.json({ success: true, message: 'Estilista eliminado' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

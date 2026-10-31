@@ -21,4 +21,8 @@ export const stylistsService = {
     const res = await api.put<{ success: boolean; message: string; data: Stylist }>(`/stylists/${id}`, stylist);
     return res.data;
   },
+
+  remove: async (id: string) => {
+    await api.delete<{ success: boolean; message: string }>(`/stylists/${id}`);
+  },
 };
