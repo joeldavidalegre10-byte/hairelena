@@ -412,6 +412,18 @@ function seedDefaultUsers(raw: DatabaseSync): void {
   }
 }
 
+function ensureSqliteStylistDeletedColumn(raw: DatabaseSync): void {
+  try {
+    const cols = raw.prepare('PRAGMA table_info(stylists)').all() as Array<{ name: string }>;
+    if (cols.length > 0 && !cols.some((c) => c.name === 'deleted_at')) {
+      raw.exec('ALTER TABLE stylists ADD COLUMN deleted_at TEXT DEFAULT NULL');
+      console.log('Columna stylists.deleted_at agregada (SQLite).');
+    }
+  } catch (error) {
+    console.error('No se pudo agregar la columna stylists.deleted_at:', error);
+  }
+}
+
 export const initDatabase = (): AnyDatabase => {
   if (dbInstance) return dbInstance;
 
@@ -477,6 +489,7 @@ export const initDatabase = (): AnyDatabase => {
     }
   }
 
+  ensureSqliteStylistDeletedColumn(raw);
   seedDefaultUsers(raw);
 
   sqliteRaw = raw;
@@ -542,6 +555,29 @@ export const verifyDatabase = async (): Promise<void> => {
       if (missingTables.length > 0) {
         throw new Error(
           `Faltan tablas en MySQL: ${missingTables.join(', ')}. Importá el esquema SQL desde phpMyAdmin.`,
+        );
+      }
+
+      // Columna para el borrado lógico de estilistas (se agrega sola si falta)
+      try {
+        const [delCols] = await conn.query(
+          `SELECT COLUMN_NAME
+           FROM information_schema.columns
+           WHERE table_schema = DATABASE()
+           AND TABLE_NAME = 'stylists'
+           AND COLUMN_NAME = 'deleted_at'`,
+        );
+
+        if ((delCols as unknown[]).length === 0) {
+          await conn.query(
+            'ALTER TABLE stylists ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL AFTER is_active',
+          );
+          console.log('Columna stylists.deleted_at agregada (MySQL).');
+        }
+      } catch (error) {
+        console.warn(
+          'No se pudo agregar stylists.deleted_at automáticamente. Ejecutá el SQL de sql/agregar_deleted_at_stylists.sql en phpMyAdmin.',
+          error,
         );
       }
 

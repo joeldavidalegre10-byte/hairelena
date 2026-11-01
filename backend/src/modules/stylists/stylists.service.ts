@@ -8,6 +8,7 @@ export class StylistsService {
     const rows = (await db.prepare(`
       SELECT id, user_id, full_name, email, phone, commission_rate, specialties, is_active, created_at, updated_at
       FROM stylists
+      WHERE deleted_at IS NULL
       ORDER BY full_name ASC
     `).all()) as any[];
 
@@ -20,7 +21,7 @@ export class StylistsService {
 
   static async getById(id: string) {
     const db = getDb();
-    const row = (await db.prepare('SELECT * FROM stylists WHERE id = ?').get(id)) as any;
+    const row = (await db.prepare('SELECT * FROM stylists WHERE id = ? AND deleted_at IS NULL').get(id)) as any;
     if (!row) {
       throw new AppError('Estilista no encontrado', 404);
     }
@@ -72,7 +73,7 @@ export class StylistsService {
     is_active?: boolean;
   }) {
     const db = getDb();
-    const existing = await db.prepare('SELECT id FROM stylists WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT id FROM stylists WHERE id = ? AND deleted_at IS NULL').get(id);
     if (!existing) {
       throw new AppError('Estilista no encontrado', 404);
     }
@@ -122,31 +123,27 @@ export class StylistsService {
   }
 
   /**
-   * Elimina un estilista. Si ya tiene pagos/liquidaciones registrados se bloquea
-   * para no perder el historial contable (en ese caso conviene desactivarlo).
-   * Las comisiones pendientes y los márgenes personalizados se eliminan con él.
+   * Eliminación lógica: el estilista deja de existir para el sistema (no aparece
+   * en listados ni se puede editar) pero su fila queda en la base de datos con
+   * `deleted_at` marcado, así se conservan sus pagos, liquidaciones y ventas.
+   * Las comisiones pendientes (aún no pagadas) y los márgenes personalizados se quitan.
    */
   static async remove(id: string, userId?: string) {
     const db = getDb();
-    const stylist = (await db.prepare('SELECT id, full_name FROM stylists WHERE id = ?').get(id)) as any;
+    const stylist = (await db
+      .prepare('SELECT id, full_name FROM stylists WHERE id = ? AND deleted_at IS NULL')
+      .get(id)) as any;
     if (!stylist) {
       throw new AppError('Estilista no encontrado', 404);
     }
 
-    const payouts = (await db.prepare('SELECT COUNT(*) AS c FROM stylist_payouts WHERE stylist_id = ?').get(id)) as any;
-    const paid = (await db.prepare("SELECT COUNT(*) AS c FROM commissions WHERE stylist_id = ? AND status = 'paid'").get(id)) as any;
-
-    if (Number(payouts?.c || 0) > 0 || Number(paid?.c || 0) > 0) {
-      throw new AppError(
-        'No se puede eliminar: el estilista tiene pagos o liquidaciones registrados. Desactívalo en su lugar para conservar el historial.',
-        409
-      );
-    }
-
-    await db.prepare('DELETE FROM commissions WHERE stylist_id = ?').run(id);
+    await db.prepare("DELETE FROM commissions WHERE stylist_id = ? AND status = 'pending'").run(id);
     await db.prepare('DELETE FROM service_stylist_margins WHERE stylist_id = ?').run(id);
-    await db.prepare('UPDATE sale_items SET stylist_id = NULL WHERE stylist_id = ?').run(id);
-    await db.prepare('DELETE FROM stylists WHERE id = ?').run(id);
+    await db.prepare(`
+      UPDATE stylists
+      SET is_active = 0, deleted_at = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(new Date().toISOString(), id);
 
     try {
       const user = userId

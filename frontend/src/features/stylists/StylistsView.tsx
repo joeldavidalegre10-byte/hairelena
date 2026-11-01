@@ -454,12 +454,12 @@ export const StylistsView: React.FC = () => {
 
               {pendingSum > 0 && (
                 <p className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-xs text-amber-700 dark:text-amber-400">
-                  Tiene <strong>{formatCurrency(pendingSum)}</strong> en comisiones pendientes que se perderán al eliminarlo.
+                  Tiene <strong>{formatCurrency(pendingSum)}</strong> en comisiones pendientes que se anularán al eliminarlo.
                 </p>
               )}
 
               <p className="mt-3 text-[11px] text-slate-400">
-                Si solo quieres que deje de aparecer en el sistema, usa «Desactivar». Si tiene pagos o liquidaciones registrados, no se podrá eliminar.
+                Dejará de existir en el sistema, pero sus pagos y liquidaciones anteriores se conservan en el historial. Si solo quieres pausarlo temporalmente, usa «Desactivar».
               </p>
 
               <div className="flex justify-end gap-2 text-xs mt-5">

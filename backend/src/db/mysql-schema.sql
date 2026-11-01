@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS stylists (
     commission_rate DECIMAL(7,2) NOT NULL DEFAULT 40.00,
     specialties     TEXT         NULL,
     is_active       TINYINT(1)   NOT NULL DEFAULT 1,
+    deleted_at      DATETIME     NULL DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
