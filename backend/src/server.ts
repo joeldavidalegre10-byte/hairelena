@@ -1,6 +1,7 @@
 import app from './app.js';
 import { env } from './config/env.js';
 import { initDatabase, verifyDatabase } from './db/database.js';
+import { ensureCustomersAndCostColumns } from './db/ensure-customers-and-costs.js';
 
 let server: ReturnType<typeof app.listen> | null = null;
 
@@ -28,6 +29,7 @@ async function startServer() {
 
   console.log('Verificando base de datos...');
   await verifyDatabase();
+  await ensureCustomersAndCostColumns();
 
   server = app.listen(env.PORT, () => {
     const dbInfo = env.DB_TYPE === 'mysql'

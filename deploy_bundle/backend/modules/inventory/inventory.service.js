@@ -15,6 +15,14 @@ const normalizeProduct = (r) => {
         is_active: Boolean(r.is_active),
     };
 };
+/** Valida el costo de un servicio: número finito y no negativo. */
+function parseServiceCost(raw) {
+    const cost = Number(raw);
+    if (!Number.isFinite(cost) || cost < 0) {
+        throw new AppError('El costo del servicio debe ser un número mayor o igual a 0', 400);
+    }
+    return cost;
+}
 export class InventoryService {
     // Categorías
     static async listCategories() {
@@ -55,6 +63,8 @@ export class InventoryService {
         return rows.map((r) => ({
             ...r,
             price: Number(r.price),
+            cost: Number(r.cost || 0),
+            cost_confirmed: Boolean(Number(r.cost_confirmed || 0)),
             is_active: Boolean(r.is_active),
             variants: variantsByService.get(r.id) || [],
         }));
@@ -90,6 +100,8 @@ export class InventoryService {
         return {
             ...service,
             price: Number(service.price),
+            cost: Number(service.cost || 0),
+            cost_confirmed: Boolean(Number(service.cost_confirmed || 0)),
             variants: variants.map((v) => ({ ...v, price: Number(v.price) })),
         };
     }
@@ -103,10 +115,13 @@ export class InventoryService {
                 finalPrice = Number(payload.variants[0].price) || 0;
             }
         }
+        const cost = payload.cost !== undefined ? parseServiceCost(payload.cost) : 0;
+        // Con costo > 0 queda confirmado solo; con costo 0 hace falta confirmarlo a propósito.
+        const costConfirmed = cost > 0 || payload.cost_confirmed === true ? 1 : 0;
         await db.prepare(`
-      INSERT INTO services (id, category_id, name, description, duration_minutes, price, cost, profit_margin_percent, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    `).run(id, payload.category_id || null, payload.name, payload.description || null, payload.duration_minutes || 30, finalPrice, payload.cost || 0, payload.profit_margin_percent !== undefined ? payload.profit_margin_percent : null, now, now);
+      INSERT INTO services (id, category_id, name, description, duration_minutes, price, cost, cost_confirmed, profit_margin_percent, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(id, payload.category_id || null, payload.name, payload.description || null, payload.duration_minutes || 30, finalPrice, cost, costConfirmed, payload.profit_margin_percent !== undefined ? payload.profit_margin_percent : null, now, now);
         // Insertar variantes u opciones de precio si se enviaron
         if (payload.variants && Array.isArray(payload.variants) && payload.variants.length > 0) {
             const insertVarStmt = db.prepare(`
@@ -151,7 +166,17 @@ export class InventoryService {
         }
         if (payload.cost !== undefined) {
             updates.push('cost = ?');
-            values.push(payload.cost);
+            values.push(parseServiceCost(payload.cost));
+        }
+        if (payload.cost !== undefined || payload.cost_confirmed !== undefined) {
+            const newCost = payload.cost !== undefined ? Number(payload.cost) : 0;
+            // Un costo mayor a 0 siempre cuenta como confirmado.
+            const confirmed = newCost > 0 || payload.cost_confirmed === true ? 1 : 0;
+            // Si solo se envía cost_confirmed=false y el servicio ya tiene costo, no se pisa.
+            if (payload.cost !== undefined || payload.cost_confirmed === true) {
+                updates.push('cost_confirmed = ?');
+                values.push(confirmed);
+            }
         }
         if (payload.profit_margin_percent !== undefined) {
             updates.push('profit_margin_percent = ?');

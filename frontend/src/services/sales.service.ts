@@ -3,6 +3,7 @@ import { Sale } from '../types';
 
 export interface CreateSalePayload {
   register_id?: string;
+  customer_id?: string | null;
   customer_name?: string;
   customer_phone?: string;
   payment_method: 'cash' | 'card' | 'transfer' | 'mixed';

@@ -18,6 +18,7 @@ export class SalesController {
                   commission_amount,
                   profit_margin_percent,
                   profit_amount,
+                  cost_amount,
                   ...rest
                 } = item;
                 return rest;
@@ -49,6 +50,7 @@ export class SalesController {
                   commission_amount,
                   profit_margin_percent,
                   profit_amount,
+                  cost_amount,
                   ...rest
                 } = item;
                 return rest;

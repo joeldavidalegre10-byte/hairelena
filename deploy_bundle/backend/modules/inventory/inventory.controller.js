@@ -21,7 +21,7 @@ export class InventoryController {
             // Si el usuario es cajero, ocultar porcentajes de ganancia, costos y configuración de margen
             if (req.user?.role === 'cashier') {
                 data = data.map((srv) => {
-                    const { profit_margin_percent, cost, custom_margin_active, ...clean } = srv;
+                    const { profit_margin_percent, cost, cost_confirmed, custom_margin_active, ...clean } = srv;
                     return clean;
                 });
             }

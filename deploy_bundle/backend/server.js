@@ -1,6 +1,7 @@
 import app from './app.js';
 import { env } from './config/env.js';
 import { initDatabase, verifyDatabase } from './db/database.js';
+import { ensureCustomersAndCostColumns } from './db/ensure-customers-and-costs.js';
 let server = null;
 // Cierre controlado
 const shutdown = () => {
@@ -21,6 +22,7 @@ async function startServer() {
     initDatabase();
     console.log('Verificando base de datos...');
     await verifyDatabase();
+    await ensureCustomersAndCostColumns();
     server = app.listen(env.PORT, () => {
         const dbInfo = env.DB_TYPE === 'mysql'
             ? `MySQL Remoto (${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME})`

@@ -4,7 +4,8 @@ import { inventoryService } from '../../services/inventory.service';
 import { stylistsService } from '../../services/stylists.service';
 import { salesService } from '../../services/sales.service';
 import { utilitiesService } from '../../services/utilities.service';
-import { ServiceItem, ProductItem, Stylist, PaymentMethod, ServiceVariant, PosUtilityConfig } from '../../types';
+import { ServiceItem, ProductItem, Stylist, PaymentMethod, ServiceVariant, PosUtilityConfig, Customer } from '../../types';
+import { CustomerPicker } from './CustomerPicker';
 import { formatCurrency, formatParaguayThousands, parseParaguayNumber } from '../../utils/formatters';
 import {
   Search,
@@ -88,6 +89,9 @@ export const PosTerminal: React.FC = () => {
   const [mixedCashValue, setMixedCashValue] = useState<string>('');
   const [mixedCashNumeric, setMixedCashNumeric] = useState<number>(0);
   const [mixedOtherMethod, setMixedOtherMethod] = useState<'card' | 'transfer'>('card');
+
+  // Cliente de la venta (null = Consumidor Final)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saleSuccess, setSaleSuccess] = useState<any>(null);
@@ -374,7 +378,7 @@ export const PosTerminal: React.FC = () => {
 
       const payload = {
         register_id: currentRegister?.id,
-        customer_name: 'Consumidor Final',
+        customer_id: selectedCustomer?.id ?? null,
         payment_method: paymentMethod,
         payment_details: paymentDetails,
         discount: discount,
@@ -391,6 +395,7 @@ export const PosTerminal: React.FC = () => {
 
       const result = await salesService.create(payload);
       setSaleSuccess(result);
+      setSelectedCustomer(null);
       clearCart();
       setIsCheckoutOpen(false);
       refreshRegister();
@@ -1243,6 +1248,8 @@ export const PosTerminal: React.FC = () => {
                 {formatCurrency(cartTotal)}
               </span>
             </p>
+
+            <CustomerPicker value={selectedCustomer} onChange={setSelectedCustomer} notify={notify} />
 
             {/* Selector de Método de Pago */}
             <div className="grid grid-cols-4 gap-2 mb-5">
