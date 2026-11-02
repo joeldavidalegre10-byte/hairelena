@@ -33,15 +33,13 @@ export class ReportsService {
         const totalRevenue = num(salesStats.total_revenue);
         const totalSalesCount = num(salesStats.sales_count);
         const averageTicket = totalSalesCount > 0 ? Math.round(totalRevenue / totalSalesCount) : 0;
-        // 2. Efectivo en caja registradora abierta
-        const activeReg = (await db.prepare(`
-      SELECT expected_amount
+        // 2. Efectivo en todas las cajas abiertas (una por usuario)
+        const openRegs = (await db.prepare(`
+      SELECT COALESCE(SUM(expected_amount), 0) AS total
       FROM cash_registers
       WHERE status = 'open'
-      ORDER BY opened_at DESC
-      LIMIT 1
     `).get());
-        const currentCashInRegister = activeReg ? num(activeReg.expected_amount) : 0;
+        const currentCashInRegister = openRegs ? num(openRegs.total) : 0;
         // 3. Productos con stock bajo
         const lowStockProducts = (await db.prepare(`
       SELECT *

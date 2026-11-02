@@ -7,6 +7,20 @@ export const cashRegisterService = {
     return res.data;
   },
 
+  /** Solo administrador: cajas de todos los usuarios. */
+  listAll: async (filters?: { status?: 'open' | 'closed'; userId?: string }) => {
+    const res = await api.get<{ success: boolean; data: CashRegister[] }>('/cash-registers', {
+      status: filters?.status,
+      user_id: filters?.userId,
+    });
+    return res.data;
+  },
+
+  getById: async (registerId: string) => {
+    const res = await api.get<{ success: boolean; data: CashRegister }>(`/cash-registers/${registerId}`);
+    return res.data;
+  },
+
   open: async (initialAmount: number, notes?: string) => {
     const res = await api.post<{ success: boolean; message: string; data: CashRegister }>('/cash-registers/open', {
       initial_amount: initialAmount,

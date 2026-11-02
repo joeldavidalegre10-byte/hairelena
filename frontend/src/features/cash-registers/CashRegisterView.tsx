@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { cashRegisterService } from '../../services/cash-register.service';
 import { CashMovement } from '../../types';
+import { AllRegistersPanel } from './AllRegistersPanel';
 import { formatCurrency, formatDate, formatParaguayThousands, parseParaguayNumber } from '../../utils/formatters';
 import {
   Vault,
@@ -20,6 +21,9 @@ export const CashRegisterView: React.FC = () => {
   const [movements, setMovements] = useState<CashMovement[]>([]);
   const [loading, setLoading] = useState(false);
   const isCashier = user?.role === 'cashier';
+  const isAdmin = user?.role === 'admin';
+  // El admin puede alternar entre su propia caja y el control de las cajas de todos los usuarios
+  const [tab, setTab] = useState<'mine' | 'all'>('mine');
 
   // Modales
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -46,6 +50,8 @@ export const CashRegisterView: React.FC = () => {
   useEffect(() => {
     if (currentRegister) {
       loadMovements(currentRegister.id);
+    } else {
+      setMovements([]);
     }
   }, [currentRegister]);
 
@@ -155,10 +161,11 @@ export const CashRegisterView: React.FC = () => {
             Control de Caja Registradora
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Gestiona apertura de turno, arqueo, entradas y salidas de efectivo
+            Gestiona tu apertura de turno, arqueo, entradas y salidas de efectivo
           </p>
         </div>
 
+        {tab === 'mine' && (
         <div className="flex items-center gap-2">
           {currentRegister?.status === 'open' ? (
             <>
@@ -190,8 +197,39 @@ export const CashRegisterView: React.FC = () => {
             </button>
           )}
         </div>
+        )}
       </div>
 
+
+      {isAdmin && (
+        <div className="flex gap-2 mb-4 text-xs">
+          <button
+            onClick={() => setTab('mine')}
+            className={`px-4 py-2 rounded-xl font-semibold border cursor-pointer transition ${
+              tab === 'mine'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Mi caja
+          </button>
+          <button
+            onClick={() => setTab('all')}
+            className={`px-4 py-2 rounded-xl font-semibold border cursor-pointer transition ${
+              tab === 'all'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Todas las cajas
+          </button>
+        </div>
+      )}
+
+      {tab === 'all' && isAdmin ? (
+        <AllRegistersPanel />
+      ) : (
+        <>
       {/* ESTADO ACTUAL DE CAJA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="p-4 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
@@ -295,6 +333,8 @@ export const CashRegisterView: React.FC = () => {
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* MODAL ABRIR CAJA */}
       {showOpenModal && (

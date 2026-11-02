@@ -1,9 +1,13 @@
 import { CashRegistersService } from './cash-registers.service.js';
 import { AuthService } from '../auth/auth.service.js';
+const FALLBACK_USER_ID = '22222222-2222-2222-2222-222222222202';
+function actorOf(req) {
+    return { id: req.user?.id || FALLBACK_USER_ID, role: req.user?.role || 'cashier' };
+}
 export class CashRegistersController {
     static async getCurrent(req, res, next) {
         try {
-            const data = await CashRegistersService.getCurrent();
+            const data = await CashRegistersService.getCurrent(req.user?.id || FALLBACK_USER_ID);
             if (!data) {
                 res.json({ success: true, data: null });
                 return;
@@ -29,6 +33,29 @@ export class CashRegistersController {
             next(error);
         }
     }
+    /** Solo administrador: todas las cajas de todos los usuarios. */
+    static async list(req, res, next) {
+        try {
+            const data = await CashRegistersService.list({
+                status: typeof req.query.status === 'string' ? req.query.status : undefined,
+                userId: typeof req.query.user_id === 'string' ? req.query.user_id : undefined,
+                limit: req.query.limit ? Number(req.query.limit) : undefined,
+            });
+            res.json({ success: true, data });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    static async getById(req, res, next) {
+        try {
+            const data = await CashRegistersService.getById(actorOf(req), req.params.id);
+            res.json({ success: true, data });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     static async open(req, res, next) {
         try {
             const userId = req.user?.id || '22222222-2222-2222-2222-222222222202';
@@ -44,7 +71,7 @@ export class CashRegistersController {
         try {
             const userId = req.user?.id || '22222222-2222-2222-2222-222222222202';
             const actualAmount = Number(req.body.actual_amount) || 0;
-            const data = await CashRegistersService.close(userId, req.params.id, actualAmount, req.body.notes);
+            const data = await CashRegistersService.close(actorOf(req), req.params.id, actualAmount, req.body.notes);
             res.json({ success: true, message: 'Caja cerrada / Corte realizado exitosamente', data });
         }
         catch (error) {
@@ -55,7 +82,7 @@ export class CashRegistersController {
         try {
             const userId = req.user?.id || '22222222-2222-2222-2222-222222222202';
             const { type, amount, reason } = req.body;
-            const data = await CashRegistersService.addMovement(userId, req.params.id, type, Number(amount), reason);
+            const data = await CashRegistersService.addMovement(actorOf(req), req.params.id, type, Number(amount), reason);
             res.status(201).json({ success: true, message: 'Movimiento registrado', data });
         }
         catch (error) {
@@ -64,7 +91,7 @@ export class CashRegistersController {
     }
     static async listMovements(req, res, next) {
         try {
-            const data = await CashRegistersService.listMovements(req.params.id);
+            const data = await CashRegistersService.listMovements(actorOf(req), req.params.id);
             res.json({ success: true, data });
         }
         catch (error) {

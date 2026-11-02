@@ -188,10 +188,10 @@ export class SalesService {
     return await transaction(async () => {
       const db = getDb();
 
-      // 1. Verificar caja registradora activa (obligatoria para registrar ventas)
-      const activeReg = (await db.prepare("SELECT id, status FROM cash_registers WHERE status = 'open' ORDER BY opened_at DESC LIMIT 1").get()) as { id: string; status: string } | undefined;
+      // 1. Verificar que el USUARIO tenga su propia caja abierta (obligatoria para registrar ventas)
+      const activeReg = (await db.prepare("SELECT id, status FROM cash_registers WHERE status = 'open' AND opened_by = ? ORDER BY opened_at DESC LIMIT 1").get(cashierId)) as { id: string; status: string } | undefined;
       if (!activeReg) {
-        throw new AppError('No es posible registrar ventas: la caja registradora se encuentra cerrada. Debe abrirse un turno de caja para operar.', 400);
+        throw new AppError('No es posible registrar ventas: no tienes una caja abierta. Abre tu turno de caja para operar.', 400);
       }
       const registerId = activeReg.id;
 

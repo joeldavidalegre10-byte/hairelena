@@ -137,6 +137,13 @@ export interface CashRegister {
   actual_amount: number;
   difference: number;
   notes?: string;
+  // Solo vienen en el listado / detalle que ve el administrador
+  opened_by_name?: string;
+  closed_by_name?: string;
+  sales_total?: number;
+  sales_count?: number;
+  movements_in?: number;
+  movements_out?: number;
 }
 
 export interface CashMovement {
@@ -146,6 +153,7 @@ export interface CashMovement {
   amount: number;
   reason: string;
   created_by?: string;
+  created_by_name?: string;
   created_at: string;
 }
 
