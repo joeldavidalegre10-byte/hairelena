@@ -47,6 +47,15 @@ export class CashRegistersController {
             next(error);
         }
     }
+    /** Solo administrador: usuarios a los que se les puede habilitar una caja. */
+    static async eligibleUsers(_req, res, next) {
+        try {
+            res.json({ success: true, data: await CashRegistersService.listEligibleUsers() });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     static async getById(req, res, next) {
         try {
             const data = await CashRegistersService.getById(actorOf(req), req.params.id);
@@ -58,9 +67,9 @@ export class CashRegistersController {
     }
     static async open(req, res, next) {
         try {
-            const userId = req.user?.id || '22222222-2222-2222-2222-222222222202';
             const initialAmount = Number(req.body.initial_amount) || 0;
-            const data = await CashRegistersService.open(userId, initialAmount, req.body.notes);
+            const targetUserId = typeof req.body.user_id === 'string' && req.body.user_id ? req.body.user_id : undefined;
+            const data = await CashRegistersService.open(actorOf(req), targetUserId, initialAmount, req.body.notes);
             res.status(201).json({ success: true, message: 'Caja abierta exitosamente', data });
         }
         catch (error) {

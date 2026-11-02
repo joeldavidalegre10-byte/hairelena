@@ -146,6 +146,13 @@ export interface CashRegister {
   movements_out?: number;
 }
 
+export interface EligibleCashUser {
+  id: string;
+  full_name: string;
+  role: 'admin' | 'cashier' | 'stylist';
+  has_open_register: boolean;
+}
+
 export interface CashMovement {
   id: string;
   register_id: string;

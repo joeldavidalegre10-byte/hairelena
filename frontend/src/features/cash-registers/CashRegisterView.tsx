@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { cashRegisterService } from '../../services/cash-register.service';
-import { CashMovement } from '../../types';
+import { CashMovement, CashRegister, EligibleCashUser } from '../../types';
 import { AllRegistersPanel } from './AllRegistersPanel';
 import { formatCurrency, formatDate, formatParaguayThousands, parseParaguayNumber } from '../../utils/formatters';
 import {
@@ -24,6 +24,12 @@ export const CashRegisterView: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   // El admin puede alternar entre su propia caja y el control de las cajas de todos los usuarios
   const [tab, setTab] = useState<'mine' | 'all'>('mine');
+
+  // Admin: usuarios elegibles para habilitar caja y cajas abiertas (para elegir cuál cerrar)
+  const [eligibleUsers, setEligibleUsers] = useState<EligibleCashUser[]>([]);
+  const [openUserId, setOpenUserId] = useState('');
+  const [openRegisters, setOpenRegisters] = useState<CashRegister[]>([]);
+  const [closeTargetId, setCloseTargetId] = useState('');
 
   // Modales
   const [showOpenModal, setShowOpenModal] = useState(false);
@@ -55,6 +61,60 @@ export const CashRegisterView: React.FC = () => {
     }
   }, [currentRegister]);
 
+  const loadOpenRegisters = async (): Promise<CashRegister[]> => {
+    if (!isAdmin) return [];
+    try {
+      const list = (await cashRegisterService.listAll({ status: 'open' })) || [];
+      setOpenRegisters(list);
+      return list;
+    } catch {
+      setOpenRegisters([]);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    loadOpenRegisters();
+  }, [isAdmin, currentRegister, tab]);
+
+  // Caja que se va a cerrar: la propia para cajeros; para el admin, la elegida entre las abiertas
+  const closeTarget: CashRegister | null = isAdmin
+    ? openRegisters.find((r) => r.id === closeTargetId) || null
+    : currentRegister;
+
+  const handleOpenOpenModal = async () => {
+    if (isAdmin) {
+      try {
+        const users = (await cashRegisterService.listEligibleUsers()) || [];
+        setEligibleUsers(users);
+        // Preselecciona el primer usuario que todavía no tiene caja abierta
+        const firstFree = users.find((u) => !u.has_open_register);
+        setOpenUserId(firstFree ? firstFree.id : '');
+      } catch (err: any) {
+        notify('Error al cargar usuarios: ' + err.message, 'error');
+        return;
+      }
+    }
+    setShowOpenModal(true);
+  };
+
+  const handleOpenCloseModal = async () => {
+    if (isAdmin) {
+      const list = await loadOpenRegisters();
+      if (list.length === 0) {
+        notify('No hay ninguna caja abierta para cerrar', 'error');
+        return;
+      }
+      // Una sola caja abierta: se selecciona sola. Varias: por defecto la propia, si no la primera.
+      const preferred = list.find((r) => r.opened_by === user?.id) || list[0];
+      setCloseTargetId(preferred.id);
+      setCloseAmount(preferred.expected_amount);
+    } else if (currentRegister) {
+      setCloseAmount(currentRegister.expected_amount);
+    }
+    setShowCloseModal(true);
+  };
+
   const loadMovements = async (regId: string) => {
     try {
       setLoading(true);
@@ -69,11 +129,16 @@ export const CashRegisterView: React.FC = () => {
 
   const handleOpenRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAdmin && !openUserId) {
+      notify('Selecciona el usuario al que se le habilita la caja', 'error');
+      return;
+    }
     try {
-      await cashRegisterService.open(Number(openAmount), openNotes);
+      await cashRegisterService.open(Number(openAmount), openNotes, isAdmin ? openUserId : undefined);
       notify('Caja abierta exitosamente', 'success');
       setShowOpenModal(false);
       refreshRegister();
+      loadOpenRegisters();
     } catch (err: any) {
       notify('Error al abrir caja: ' + err.message, 'error');
     }
@@ -81,12 +146,14 @@ export const CashRegisterView: React.FC = () => {
 
   const handleCloseRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentRegister) return;
+    if (!closeTarget) return;
     try {
-      const result = await cashRegisterService.close(currentRegister.id, Number(closeAmount), closeNotes);
+      const result = await cashRegisterService.close(closeTarget.id, Number(closeAmount), closeNotes);
       notify(`Corte completado. Diferencia: ${formatCurrency(result.difference)}`, 'success');
       setShowCloseModal(false);
+      setCloseNotes('');
       refreshRegister();
+      loadOpenRegisters();
     } catch (err: any) {
       notify('Error al cerrar caja: ' + err.message, 'error');
     }
@@ -165,41 +232,40 @@ export const CashRegisterView: React.FC = () => {
           </p>
         </div>
 
-        {tab === 'mine' && (
-        <div className="flex items-center gap-2">
-          {currentRegister?.status === 'open' ? (
-            <>
-              <button
-                onClick={() => setShowMovementModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
-              >
-                <PlusCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                Registrar Movimiento
-              </button>
-              <button
-                onClick={() => {
-                  setCloseAmount(currentRegister.expected_amount);
-                  setShowCloseModal(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-600/20 dark:hover:bg-rose-600/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 text-xs font-bold rounded-xl transition cursor-pointer"
-              >
-                <Lock className="w-4 h-4" />
-                Cerrar Turno (Arqueo)
-              </button>
-            </>
-          ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          {tab === 'mine' && currentRegister?.status === 'open' && (
             <button
-              onClick={() => setShowOpenModal(true)}
+              onClick={() => setShowMovementModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              Registrar Movimiento
+            </button>
+          )}
+
+          {/* Cerrar: cajero con caja abierta; admin si hay cualquier caja abierta */}
+          {(isAdmin ? openRegisters.length > 0 || currentRegister?.status === 'open' : currentRegister?.status === 'open') && (
+            <button
+              onClick={handleOpenCloseModal}
+              className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-600/20 dark:hover:bg-rose-600/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+              Cerrar Turno (Arqueo)
+            </button>
+          )}
+
+          {/* Abrir: cajero sin caja abierta; admin siempre (elige el usuario) */}
+          {(isAdmin || currentRegister?.status !== 'open') && (
+            <button
+              onClick={handleOpenOpenModal}
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-lg shadow-emerald-600/20"
             >
               <Unlock className="w-4 h-4" />
-              Abrir Caja Registradora
+              {isAdmin ? 'Habilitar Caja' : 'Abrir Caja Registradora'}
             </button>
           )}
         </div>
-        )}
       </div>
-
 
       {isAdmin && (
         <div className="flex gap-2 mb-4 text-xs">
@@ -352,6 +418,33 @@ export const CashRegisterView: React.FC = () => {
             </div>
 
             <div className="space-y-3 mb-5 text-xs">
+              {isAdmin && (
+                <div>
+                  <label className="text-slate-700 dark:text-slate-300 block mb-1 font-semibold">Habilitar caja para</label>
+                  <select
+                    required
+                    value={openUserId}
+                    onChange={(e) => setOpenUserId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="" disabled>
+                      Selecciona un usuario...
+                    </option>
+                    {eligibleUsers.map((u) => (
+                      <option key={u.id} value={u.id} disabled={u.has_open_register}>
+                        {u.full_name}
+                        {u.id === user?.id ? ' (yo)' : ''}
+                        {u.has_open_register ? ' — ya tiene caja abierta' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {eligibleUsers.length > 0 && eligibleUsers.every((u) => u.has_open_register) && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                      Todos los usuarios ya tienen su caja abierta.
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-slate-700 dark:text-slate-300 block mb-1 font-semibold">Fondo de Cambio Inicial (₲)</label>
                 <input
@@ -395,7 +488,7 @@ export const CashRegisterView: React.FC = () => {
       )}
 
       {/* MODAL CERRAR CAJA / CORTE */}
-      {showCloseModal && currentRegister && (
+      {showCloseModal && closeTarget && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleCloseRegister} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-2">
@@ -413,10 +506,38 @@ export const CashRegisterView: React.FC = () => {
               Ingresa el dinero físico contado en gaveta para calcular diferencias.
             </p>
 
+            {isAdmin && (
+              <div className="mb-4 text-xs">
+                <label className="text-slate-700 dark:text-slate-300 block mb-1 font-semibold">Caja del usuario</label>
+                {openRegisters.length > 1 ? (
+                  <select
+                    value={closeTargetId}
+                    onChange={(e) => {
+                      setCloseTargetId(e.target.value);
+                      const reg = openRegisters.find((r) => r.id === e.target.value);
+                      if (reg) setCloseAmount(reg.expected_amount);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                  >
+                    {openRegisters.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.opened_by_name || 'Usuario'}
+                        {r.opened_by === user?.id ? ' (yo)' : ''} — esperado {formatCurrency(r.expected_amount)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {closeTarget.opened_by_name || 'Usuario'}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 mb-4 text-xs space-y-1">
               <div className="flex justify-between text-slate-600 dark:text-slate-400">
                 <span>Efectivo calculado por sistema:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(currentRegister.expected_amount)}</span>
+                <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(closeTarget.expected_amount)}</span>
               </div>
             </div>
 
@@ -437,9 +558,9 @@ export const CashRegisterView: React.FC = () => {
               <div className="flex justify-between items-center text-xs pt-1">
                 <span className="text-slate-500 dark:text-slate-400">Diferencia proyectada:</span>
                 <span className={`font-bold ${
-                  closeAmount - currentRegister.expected_amount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                  closeAmount - closeTarget.expected_amount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
-                  {formatCurrency(closeAmount - currentRegister.expected_amount)}
+                  {formatCurrency(closeAmount - closeTarget.expected_amount)}
                 </span>
               </div>
 

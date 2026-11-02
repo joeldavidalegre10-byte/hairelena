@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb, transaction } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { resolvePermissions } from '../../config/permissions.js';
 
 const MAX_REASON_LENGTH = 255;
 
@@ -152,8 +153,47 @@ export class CashRegistersService {
     return normalizeRegister(reg);
   }
 
-  static async open(userId: string, initialAmount: number, notes?: string) {
+  /**
+   * Usuarios a los que se les puede habilitar una caja (activos y con acceso al POS o a caja),
+   * indicando si ya tienen una caja abierta. Solo lo consume el administrador.
+   */
+  static async listEligibleUsers() {
+    const db = getDb();
+    const users = (await db.prepare(`
+      SELECT id, full_name, role, permissions
+      FROM users
+      WHERE is_active = 1 AND role <> 'stylist'
+      ORDER BY full_name ASC
+    `).all()) as any[];
+
+    const openRows = (await db.prepare(`
+      SELECT opened_by FROM cash_registers WHERE status = 'open'
+    `).all()) as any[];
+    const withOpen = new Set(openRows.map((r) => r.opened_by));
+
+    return users
+      .filter((u) => {
+        const perms = resolvePermissions(u.role, u.permissions);
+        return perms.includes('pos') || perms.includes('register');
+      })
+      .map((u) => ({
+        id: u.id,
+        full_name: u.full_name,
+        role: u.role,
+        has_open_register: withOpen.has(u.id),
+      }));
+  }
+
+  /**
+   * Abre una caja. El administrador puede habilitarla para cualquier usuario (targetUserId);
+   * el resto solo puede abrir la suya.
+   */
+  static async open(actor: CashActor, targetUserId: string | undefined, initialAmount: number, notes?: string) {
     const amount = parseAmount(initialAmount, 'El monto inicial', true);
+    const userId = targetUserId || actor.id;
+    if (userId !== actor.id && actor.role !== 'admin') {
+      throw new AppError('Solo un administrador puede habilitar la caja de otro usuario', 403);
+    }
 
     return await transaction(async () => {
       const db = getDb();
@@ -164,10 +204,17 @@ export class CashRegistersService {
         SELECT id FROM cash_registers WHERE status = 'open' AND opened_by = ? LIMIT 1
       `).get(userId)) as any;
       if (existing) {
-        throw new AppError('Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.', 409);
+        throw new AppError(
+          userId === actor.id
+            ? 'Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.'
+            : 'Ese usuario ya tiene una caja abierta. Ciérrala antes de habilitar una nueva.',
+          409,
+        );
       }
 
-      const owner = (await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any;
+      const owner = (await db.prepare('SELECT full_name, is_active FROM users WHERE id = ?').get(userId)) as any;
+      if (!owner) throw new AppError('Usuario no encontrado', 404);
+      if (Number(owner.is_active) !== 1) throw new AppError('El usuario seleccionado está inactivo', 400);
       const registerName = owner?.full_name ? `Caja de ${owner.full_name}` : 'Caja Principal';
 
       const id = `reg-${crypto.randomUUID().slice(0, 8)}`;

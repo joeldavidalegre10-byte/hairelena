@@ -9,6 +9,7 @@ router.get('/current', requirePermission('register', 'pos'), CashRegistersContro
 router.use(requirePermission('register'));
 // Solo el administrador ve el listado de las cajas de todos los usuarios
 router.get('/', authorize(['admin']), CashRegistersController.list);
+router.get('/eligible-users', authorize(['admin']), CashRegistersController.eligibleUsers);
 router.get('/:id', CashRegistersController.getById);
 router.post('/open', CashRegistersController.open);
 router.post('/:id/close', CashRegistersController.close);

@@ -1,5 +1,5 @@
 import { api } from './api';
-import { CashRegister, CashMovement } from '../types';
+import { CashRegister, CashMovement, EligibleCashUser } from '../types';
 
 export const cashRegisterService = {
   getCurrent: async () => {
@@ -21,10 +21,18 @@ export const cashRegisterService = {
     return res.data;
   },
 
-  open: async (initialAmount: number, notes?: string) => {
+  /** Usuarios a los que el admin puede habilitarles una caja. */
+  listEligibleUsers: async () => {
+    const res = await api.get<{ success: boolean; data: EligibleCashUser[] }>('/cash-registers/eligible-users');
+    return res.data;
+  },
+
+  /** `userId` solo lo respeta el servidor si quien llama es administrador. */
+  open: async (initialAmount: number, notes?: string, userId?: string) => {
     const res = await api.post<{ success: boolean; message: string; data: CashRegister }>('/cash-registers/open', {
       initial_amount: initialAmount,
       notes,
+      user_id: userId,
     });
     return res.data;
   },
