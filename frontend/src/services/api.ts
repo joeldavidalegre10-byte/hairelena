@@ -12,16 +12,29 @@ export class ApiError extends Error {
   }
 }
 
+// El token vive en sessionStorage: se borra al cerrar la pestaña o el navegador,
+// por lo que al volver a abrir el sistema se pide usuario y contraseña de nuevo.
+// (Recargar la página con F5 mantiene la sesión.)
+const TOKEN_KEY = 'elite_token';
+
+// Limpia tokens viejos guardados en localStorage por versiones anteriores,
+// para que quien ya tenía sesión abierta tampoco quede "pegado".
+try {
+  localStorage.removeItem(TOKEN_KEY);
+} catch {
+  /* ignorar */
+}
+
 export const getToken = (): string | null => {
-  return localStorage.getItem('elite_token');
+  return sessionStorage.getItem(TOKEN_KEY);
 };
 
 export const setToken = (token: string): void => {
-  localStorage.setItem('elite_token', token);
+  sessionStorage.setItem(TOKEN_KEY, token);
 };
 
 export const removeToken = (): void => {
-  localStorage.removeItem('elite_token');
+  sessionStorage.removeItem(TOKEN_KEY);
 };
 
 interface RequestOptions extends RequestInit {
