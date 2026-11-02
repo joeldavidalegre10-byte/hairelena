@@ -128,7 +128,12 @@ export class StylistsService {
    * `deleted_at` marcado, así se conservan sus pagos, liquidaciones y ventas.
    * Las comisiones pendientes (aún no pagadas) y los márgenes personalizados se quitan.
    */
-  static async remove(id: string, userId?: string) {
+  static async remove(
+    id: string,
+    reason: string,
+    requestedBy: { id: string; fullName?: string },
+    authorizedBy: { id: string; fullName?: string }
+  ) {
     const db = getDb();
     const stylist = (await db
       .prepare('SELECT id, full_name FROM stylists WHERE id = ? AND deleted_at IS NULL')
@@ -145,23 +150,24 @@ export class StylistsService {
       WHERE id = ?
     `).run(new Date().toISOString(), id);
 
-    try {
-      const user = userId
-        ? ((await db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId)) as any)
-        : null;
-      await db.prepare(`
-        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details, created_at)
-        VALUES (?, 'delete_stylist', 'stylist', ?, ?, ?, ?, ?)
-      `).run(
-        `aud-${crypto.randomUUID().slice(0, 8)}`,
+    await db
+      .prepare(`
+        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        `aud-${crypto.randomUUID().slice(0, 12)}`,
+        'stylist.delete',
+        'stylist',
         id,
-        userId || null,
-        user?.full_name || 'Administrador del sistema',
-        `Estilista «${stylist.full_name}» eliminado`,
-        new Date().toISOString()
+        requestedBy.id,
+        requestedBy.fullName || null,
+        JSON.stringify({
+          name: stylist.full_name,
+          reason,
+          requested_by: requestedBy,
+          authorized_by: authorizedBy,
+        })
       );
-    } catch {
-      // La auditoría nunca debe impedir la eliminación
-    }
   }
 }

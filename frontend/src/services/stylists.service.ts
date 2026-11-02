@@ -22,7 +22,7 @@ export const stylistsService = {
     return res.data;
   },
 
-  remove: async (id: string) => {
-    await api.delete<{ success: boolean; message: string }>(`/stylists/${id}`);
+  remove: async (id: string, payload: { reason: string; password: string }) => {
+    await api.delete<{ success: boolean; message: string }>(`/stylists/${id}`, payload);
   },
 };
