@@ -3,7 +3,8 @@ import { useApp } from '../../context/AppContext';
 import { inventoryService } from '../../services/inventory.service';
 import { stylistsService } from '../../services/stylists.service';
 import { salesService } from '../../services/sales.service';
-import { ServiceItem, ProductItem, Stylist, PaymentMethod, ServiceVariant } from '../../types';
+import { utilitiesService } from '../../services/utilities.service';
+import { ServiceItem, ProductItem, Stylist, PaymentMethod, ServiceVariant, PosUtilityConfig } from '../../types';
 import { formatCurrency, formatParaguayThousands, parseParaguayNumber } from '../../utils/formatters';
 import {
   Search,
@@ -32,6 +33,7 @@ import {
   Barcode,
   Check,
   Coffee,
+  HandCoins,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
@@ -43,6 +45,7 @@ export const PosTerminal: React.FC = () => {
     updateCartItemQty,
     removeCartItem,
     assignCartStylist,
+    assignCartHelper,
     clearCart,
     discount,
     setDiscount,
@@ -69,6 +72,11 @@ export const PosTerminal: React.FC = () => {
   const [selectedServiceForStylist, setSelectedServiceForStylist] = useState<ServiceItem | null>(null);
   const [selectedStylistId, setSelectedStylistId] = useState<string>('');
   const [stylistSearchTerm, setStylistSearchTerm] = useState<string>('');
+
+  // Utilidad: estilista auxiliar (opcional) al agregar un servicio
+  const [utilityConfig, setUtilityConfig] = useState<PosUtilityConfig>({ services: {}, helpers: [] });
+  const [addHelper, setAddHelper] = useState<boolean>(false);
+  const [selectedHelperId, setSelectedHelperId] = useState<string>('');
 
   // Estado del Modal de Cobro
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -104,7 +112,19 @@ export const PosTerminal: React.FC = () => {
     } catch (err: any) {
       notify('Error al cargar catálogo: ' + err.message, 'error');
     }
+
+    // La utilidad es opcional: si falla, el POS funciona igual que siempre (sin auxiliares).
+    try {
+      setUtilityConfig(await utilitiesService.getPosConfig());
+    } catch {
+      setUtilityConfig({ services: {}, helpers: [] });
+    }
   };
+
+  // ¿Este servicio admite utilidad y hay auxiliares disponibles?
+  const utilityOf = (serviceId: string) => utilityConfig.services[serviceId];
+  const helperCandidates = (mainStylistId?: string) =>
+    utilityConfig.helpers.filter((h) => h.id !== mainStylistId);
 
   const isArticleItem = (p: ProductItem) => {
     return (
@@ -164,6 +184,8 @@ export const PosTerminal: React.FC = () => {
       setSelectedServicePrice(singleVariant ? singleVariant.price : srv.price);
       setSelectedStylistId('');
       setStylistSearchTerm('');
+      setAddHelper(false);
+      setSelectedHelperId('');
     }
   };
 
@@ -178,6 +200,8 @@ export const PosTerminal: React.FC = () => {
     setSelectedServicePrice(variant.price);
     setSelectedStylistId('');
     setStylistSearchTerm('');
+    setAddHelper(false);
+    setSelectedHelperId('');
   };
 
   const handleCancelPriceSelection = () => {
@@ -196,6 +220,22 @@ export const PosTerminal: React.FC = () => {
     const stylist = stylists.find((s) => s.id === selectedStylistId);
     if (!stylist) return;
 
+    // Estilista auxiliar (opcional): el servidor vuelve a validar y calcula el monto
+    let helper: { id: string; name: string; amount: number } | undefined;
+    if (addHelper) {
+      const util = utilityOf(selectedServiceForStylist.id);
+      const h = helperCandidates(stylist.id).find((x) => x.id === selectedHelperId);
+      if (!util?.eligible) {
+        notify('Este servicio no está habilitado para utilidad', 'error');
+        return;
+      }
+      if (!h) {
+        notify('Selecciona la estilista auxiliar o desactiva la opción', 'error');
+        return;
+      }
+      helper = { id: h.id, name: h.full_name, amount: util.amount };
+    }
+
     // Agregar al carrito con el estilista y la variante/precio seleccionados
     addToCart(
       selectedServiceForStylist,
@@ -204,19 +244,24 @@ export const PosTerminal: React.FC = () => {
       stylist.full_name,
       selectedVariant?.id,
       selectedVariant?.name,
-      selectedServicePrice || selectedServiceForStylist.price
+      selectedServicePrice || selectedServiceForStylist.price,
+      helper
     );
 
     // Cerrar modal
     setSelectedServiceForStylist(null);
     setSelectedVariant(null);
     setSelectedStylistId('');
+    setAddHelper(false);
+    setSelectedHelperId('');
   };
 
   const handleCancelServiceStylist = () => {
     setSelectedServiceForStylist(null);
     setSelectedVariant(null);
     setSelectedStylistId('');
+    setAddHelper(false);
+    setSelectedHelperId('');
   };
 
   const isRegisterOpen = currentRegister?.status === 'open';
@@ -340,6 +385,7 @@ export const PosTerminal: React.FC = () => {
           quantity: item.quantity,
           unit_price: item.price,
           stylist_id: item.stylist_id,
+          helper_stylist_id: item.helper_stylist_id || undefined,
         })),
       };
 
@@ -774,7 +820,13 @@ export const PosTerminal: React.FC = () => {
                           value={item.stylist_id || ''}
                           onChange={(e) => {
                             const sty = stylists.find((s) => s.id === e.target.value);
-                            if (sty) assignCartStylist(item.id, sty.id, sty.full_name);
+                            if (!sty) return;
+                            // La principal y la auxiliar nunca pueden ser la misma persona
+                            if (item.helper_stylist_id === sty.id) {
+                              assignCartHelper(item.id, null);
+                              notify(`${sty.full_name} pasó a ser la principal: se quitó como auxiliar`, 'info');
+                            }
+                            assignCartStylist(item.id, sty.id, sty.full_name);
                           }}
                           className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg px-2 py-0.5 focus:outline-none cursor-pointer max-w-[170px]"
                         >
@@ -785,6 +837,60 @@ export const PosTerminal: React.FC = () => {
                           ))}
                         </select>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Estilista auxiliar y utilidad (solo servicios que la admiten) */}
+                  {item.item_type === 'service' && (item.helper_stylist_id || (utilityOf(item.original_id)?.eligible && helperCandidates(item.stylist_id).length > 0)) && (
+                    <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-900">
+                      {item.helper_stylist_id ? (
+                        <>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <HandCoins className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="text-slate-500">Auxiliar:</span>
+                            <select
+                              value={item.helper_stylist_id}
+                              onChange={(e) => {
+                                const h = helperCandidates(item.stylist_id).find((x) => x.id === e.target.value);
+                                if (h) assignCartHelper(item.id, { id: h.id, name: h.full_name, amount: item.utility_amount ?? 0 });
+                              }}
+                              className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold rounded-lg px-2 py-0.5 focus:outline-none cursor-pointer max-w-[130px]"
+                            >
+                              {helperCandidates(item.stylist_id).map((h) => (
+                                <option key={h.id} value={h.id}>
+                                  {h.full_name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400" title="Utilidad extra para la auxiliar">
+                              +{formatCurrency((item.utility_amount ?? 0) * item.quantity)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => assignCartHelper(item.id, null)}
+                              className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded cursor-pointer"
+                              title="Quitar estilista auxiliar"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const util = utilityOf(item.original_id);
+                            const h = helperCandidates(item.stylist_id)[0];
+                            if (util?.eligible && h) assignCartHelper(item.id, { id: h.id, name: h.full_name, amount: util.amount });
+                          }}
+                          className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
+                        >
+                          <HandCoins className="w-3.5 h-3.5" />
+                          Agregar estilista auxiliar
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -1062,6 +1168,47 @@ export const PosTerminal: React.FC = () => {
                 })
               )}
             </div>
+
+            {/* Estilista auxiliar (opcional, solo si el servicio admite utilidad) */}
+            {selectedServiceForStylist && utilityOf(selectedServiceForStylist.id)?.eligible && helperCandidates(selectedStylistId).length > 0 && (
+              <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2">
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <span className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <HandCoins className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    Agregar estilista auxiliar
+                    <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                      (+{formatCurrency(utilityOf(selectedServiceForStylist.id)!.amount)})
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={addHelper}
+                    onChange={(e) => {
+                      setAddHelper(e.target.checked);
+                      if (!e.target.checked) setSelectedHelperId('');
+                    }}
+                    className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                  />
+                </label>
+                {addHelper && (
+                  <select
+                    value={selectedHelperId}
+                    onChange={(e) => setSelectedHelperId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/40 rounded-lg text-slate-900 dark:text-white focus:outline-none"
+                  >
+                    <option value="">Seleccionar estilista auxiliar...</option>
+                    {helperCandidates(selectedStylistId).map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.full_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  La auxiliar recibe este monto extra por ayudar; la comisión de la principal no cambia.
+                </p>
+              </div>
+            )}
 
             {/* Botones de Confirmación y Cancelación */}
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">

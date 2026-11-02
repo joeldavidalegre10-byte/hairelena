@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
+import { SQLITE_UTILITY_DDL, UTILITY_TABLES, mysqlUtilityDdl } from './utility-schema.js';
 const nodeRequire = createRequire(import.meta.url);
 const loadSqlite = () => nodeRequire('node:sqlite');
 /* ------------------------------------------------------------------ */
@@ -284,6 +285,17 @@ function ensureSqliteUserPermissionsColumn(raw) {
         console.error('No se pudo agregar la columna users.permissions:', error);
     }
 }
+function ensureSqliteUtilityTables(raw) {
+    // Módulo Utilidad: solo CREATE ... IF NOT EXISTS (no toca datos existentes).
+    try {
+        for (const statement of SQLITE_UTILITY_DDL) {
+            raw.exec(statement);
+        }
+    }
+    catch (error) {
+        console.error('No se pudieron crear las tablas del módulo Utilidad (SQLite):', error);
+    }
+}
 export const initDatabase = () => {
     if (dbInstance)
         return dbInstance;
@@ -332,11 +344,62 @@ export const initDatabase = () => {
     }
     ensureSqliteStylistDeletedColumn(raw);
     ensureSqliteUserPermissionsColumn(raw);
+    ensureSqliteUtilityTables(raw);
     seedDefaultUsers(raw);
     sqliteRaw = raw;
     dbInstance = new SQLiteAdapter(raw);
     return dbInstance;
 };
+/* ------------------------------------------------------------------ */
+/* Módulo Utilidad: tablas nuevas en MySQL / MariaDB                  */
+/* ------------------------------------------------------------------ */
+async function ensureMySQLUtilityTables(conn) {
+    try {
+        // Misma collation que las tablas existentes (evita errores de FK y de JOIN).
+        let collation = 'utf8mb4_unicode_ci';
+        try {
+            const [rows] = await conn.query(`SELECT COLLATION_NAME AS c
+         FROM information_schema.columns
+         WHERE table_schema = DATABASE()
+         AND TABLE_NAME = 'stylists'
+         AND COLUMN_NAME = 'id'`);
+            const detected = rows[0]?.c;
+            if (detected && /^[a-z0-9_]+$/i.test(detected)) {
+                collation = detected;
+            }
+        }
+        catch {
+            // Se usa la collation por defecto del proyecto.
+        }
+        const create = async (withForeignKeys) => {
+            for (const statement of mysqlUtilityDdl(collation, withForeignKeys)) {
+                await conn.query(statement);
+            }
+        };
+        try {
+            await create(true);
+        }
+        catch (error) {
+            console.warn('No se pudieron crear las tablas de Utilidad con claves foráneas; se reintenta sin ellas.', error);
+            await create(false);
+        }
+        const [existing] = await conn.query(`SELECT TABLE_NAME
+       FROM information_schema.tables
+       WHERE table_schema = DATABASE()
+       AND TABLE_NAME IN (${UTILITY_TABLES.map(() => '?').join(',')})`, [...UTILITY_TABLES]);
+        const present = new Set(existing.map((row) => row.TABLE_NAME));
+        const missing = UTILITY_TABLES.filter((table) => !present.has(table));
+        if (missing.length > 0) {
+            console.warn(`Faltan tablas del módulo Utilidad: ${missing.join(', ')}. Ejecutá sql/agregar_utilidad.sql en phpMyAdmin.`);
+        }
+        else {
+            console.log('Tablas del módulo Utilidad verificadas (MySQL).');
+        }
+    }
+    catch (error) {
+        console.warn('No se pudieron preparar las tablas del módulo Utilidad. Ejecutá sql/agregar_utilidad.sql en phpMyAdmin.', error);
+    }
+}
 /* ------------------------------------------------------------------ */
 /* Verificación de conexión y tablas                                  */
 /* ------------------------------------------------------------------ */
@@ -406,6 +469,8 @@ export const verifyDatabase = async () => {
             catch (error) {
                 console.warn('No se pudo agregar users.permissions automáticamente. Ejecutá sql/agregar_permisos_usuarios.sql en phpMyAdmin.', error);
             }
+            // Módulo Utilidad: crea las tablas nuevas si faltan (aditivo, no toca datos existentes).
+            await ensureMySQLUtilityTables(conn);
             console.log('Conexión MySQL verificada correctamente.');
             console.log(`Estructura verificada: ${requiredTables.length} tablas.`);
         }

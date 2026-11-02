@@ -322,6 +322,15 @@ export const SalesHistoryView: React.FC = () => {
                             <span>· Comis: {formatCurrency(it.commission_amount)}</span>
                           ) : null}
                         </div>
+                        {it.helper_stylist_name && (
+                          <div className="mt-1 text-[11px]">
+                            <span className="text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/50">
+                              Auxiliar: {it.helper_stylist_name} · Utilidad {formatCurrency(Number(it.utility_amount) || 0)}
+                              {it.utility_status === 'cancelled' && ' (cancelada)'}
+                              {it.utility_status === 'paid' && ' (pagada)'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                         {formatCurrency(it.subtotal)}

@@ -48,11 +48,14 @@ export interface AppContextType {
     stylistName?: string,
     variantId?: string,
     variantName?: string,
-    customPrice?: number
+    customPrice?: number,
+    helper?: { id: string; name: string; amount: number }
   ) => void;
   updateCartItemQty: (id: string, delta: number) => void;
   removeCartItem: (id: string) => void;
   assignCartStylist: (id: string, stylistId: string, stylistName: string) => void;
+  /** Asigna o quita (helper = null) la estilista auxiliar de una línea de servicio. */
+  assignCartHelper: (id: string, helper: { id: string; name: string; amount: number } | null) => void;
   clearCart: () => void;
   discount: number;
   setDiscount: (discount: number) => void;
@@ -226,7 +229,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stylistName?: string,
     variantId?: string,
     variantName?: string,
-    customPrice?: number
+    customPrice?: number,
+    helper?: { id: string; name: string; amount: number }
   ) => {
     const price = customPrice !== undefined
       ? customPrice
@@ -240,6 +244,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const existing = prev.find(
         (c) =>
           c.original_id === item.id &&
+          !c.helper_stylist_id && // una línea con auxiliar nunca se fusiona (la utilidad es por línea)
+          !helper &&
           (type === 'product' || (c.stylist_id === stylistId && c.variant_id === variantId))
       );
       if (existing) {
@@ -260,6 +266,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           stylist_name: stylistName,
           variant_id: variantId,
           variant_name: variantName,
+          helper_stylist_id: helper?.id,
+          helper_stylist_name: helper?.name,
+          utility_amount: helper?.amount,
         },
       ];
     });
@@ -287,6 +296,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCart((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, stylist_id: stylistId, stylist_name: stylistName } : item
+      )
+    );
+  };
+
+  const assignCartHelper = (id: string, helper: { id: string; name: string; amount: number } | null) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              helper_stylist_id: helper?.id,
+              helper_stylist_name: helper?.name,
+              utility_amount: helper?.amount,
+            }
+          : item
       )
     );
   };
@@ -325,6 +349,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCartItemQty,
         removeCartItem,
         assignCartStylist,
+        assignCartHelper,
         clearCart,
         discount,
         setDiscount,

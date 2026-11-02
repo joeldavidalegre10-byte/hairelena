@@ -16,6 +16,7 @@ export interface CreateSalePayload {
     quantity: number;
     unit_price: number;
     stylist_id?: string;
+    helper_stylist_id?: string;
   }>;
 }
 

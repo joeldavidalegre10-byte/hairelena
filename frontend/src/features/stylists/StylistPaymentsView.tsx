@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { payoutsService } from '../../services/payouts.service';
-import { StylistPendingSummary, StylistPayoutRecord, PendingServiceItem } from '../../types';
+import { StylistPendingSummary, StylistPayoutRecord, PendingServiceItem, PendingUtilityItem } from '../../types';
+import { utilitiesService } from '../../services/utilities.service';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { useApp } from '../../context/AppContext';
 import {
@@ -21,6 +22,7 @@ import {
   Lock,
   ShieldAlert,
   X,
+  HandCoins,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -190,6 +192,38 @@ export const StylistPaymentsView: React.FC = () => {
       notify(err.message || 'Error al revertir el pago', 'error');
     } finally {
       setIsSubmittingRevert(false);
+    }
+  };
+
+  // 3.4 Excluir una utilidad pendiente (auxiliar)
+  const [cancellingUtility, setCancellingUtility] = useState<{ stylistName: string; item: PendingUtilityItem } | null>(null);
+  const [cancelUtilityPassword, setCancelUtilityPassword] = useState('');
+  const [cancelUtilityReason, setCancelUtilityReason] = useState('');
+  const [isCancellingUtility, setIsCancellingUtility] = useState(false);
+
+  const handleConfirmCancelUtility = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancellingUtility) return;
+    if (!cancelUtilityPassword.trim()) {
+      notify('Debe ingresar la contraseña de administrador', 'error');
+      return;
+    }
+    try {
+      setIsCancellingUtility(true);
+      await utilitiesService.cancelPending(
+        cancellingUtility.item.utility_id,
+        cancelUtilityPassword.trim(),
+        cancelUtilityReason.trim() || undefined
+      );
+      notify('Utilidad excluida de la liquidación', 'success');
+      setCancellingUtility(null);
+      setCancelUtilityPassword('');
+      setCancelUtilityReason('');
+      await loadData(true);
+    } catch (err: any) {
+      notify(err.message || 'Error al excluir la utilidad', 'error');
+    } finally {
+      setIsCancellingUtility(false);
     }
   };
 
@@ -445,6 +479,11 @@ export const StylistPaymentsView: React.FC = () => {
                             <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
                               {st.pending_services_count} {st.pending_services_count === 1 ? 'servicio' : 'servicios'}
                             </span>
+                            {st.pending_utilities_count > 0 && (
+                              <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                                {st.pending_utilities_count} {st.pending_utilities_count === 1 ? 'utilidad' : 'utilidades'}
+                              </span>
+                            )}
                             {st.stylist_email && (
                               <span className="text-[11px] text-slate-400 truncate hidden md:inline">
                                 {st.stylist_email}
@@ -550,13 +589,86 @@ export const StylistPaymentsView: React.FC = () => {
                           ))}
                         </div>
 
+                        {/* UTILIDADES POR AYUDAR EN SERVICIOS (concepto adicional) */}
+                        {st.utilities.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
+                              <span className="flex items-center gap-1.5">
+                                <HandCoins className="w-3.5 h-3.5" />
+                                Utilidades por estilista auxiliar
+                              </span>
+                              <span>{st.utilities.length} registros</span>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                              {st.utilities.map((u) => (
+                                <div
+                                  key={u.utility_id}
+                                  className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                >
+                                  <div className="space-y-1 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-xs text-slate-900 dark:text-white">{u.service_name}</span>
+                                      {u.invoice_number && <span className="text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                                      <span className="flex items-center gap-1">
+                                        <User className="w-3 h-3 text-slate-400" />
+                                        {u.customer_name}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 text-slate-400" />
+                                        {formatDate(u.service_date)}
+                                      </span>
+                                      {u.main_stylist_name && (
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                          Ayudó a {u.main_stylist_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-right">
+                                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad</span>
+                                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                        {formatCurrency(u.amount_to_pay)}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCancellingUtility({ stylistName: st.stylist_name, item: u });
+                                        setCancelUtilityPassword('');
+                                        setCancelUtilityReason('');
+                                      }}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition cursor-pointer ml-1"
+                                      title="Excluir esta utilidad de la liquidación"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* RESUMEN AL FINAL DE LA LISTA */}
                         <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="text-xs text-slate-600 dark:text-slate-300">
-                            <span>Cantidad total: </span>
-                            <strong className="text-slate-900 dark:text-white">
-                              {st.pending_services_count} servicios pendientes
-                            </strong>
+                          <div className="text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+                            <div>
+                              <span>Comisiones / ganancias: </span>
+                              <strong className="text-slate-900 dark:text-white">
+                                {formatCurrency(st.total_pending_commissions)} ({st.pending_services_count} servicios)
+                              </strong>
+                            </div>
+                            {st.pending_utilities_count > 0 && (
+                              <div>
+                                <span>Utilidades adicionales: </span>
+                                <strong className="text-emerald-700 dark:text-emerald-400">
+                                  {formatCurrency(st.total_pending_utilities)} ({st.pending_utilities_count})
+                                </strong>
+                              </div>
+                            )}
                           </div>
                           <div className="text-right">
                             <span className="text-xs text-slate-500 mr-2">Total a pagar al estilista:</span>
@@ -696,7 +808,11 @@ export const StylistPaymentsView: React.FC = () => {
                             >
                               {isCancelled
                                 ? 'Pago revertido'
-                                : `${p.services_count} ${p.services_count === 1 ? 'servicio' : 'servicios'}`}
+                                : `${p.services_count} ${p.services_count === 1 ? 'servicio' : 'servicios'}${
+                                    p.utilities_count > 0
+                                      ? ` + ${p.utilities_count} ${p.utilities_count === 1 ? 'utilidad' : 'utilidades'}`
+                                      : ''
+                                  }`}
                             </span>
                           </div>
                           <span className="text-[11px] text-slate-400 font-mono block mt-0.5">
@@ -808,13 +924,59 @@ export const StylistPaymentsView: React.FC = () => {
                           ))}
                         </div>
 
+                        {/* UTILIDADES INCLUIDAS EN EL PAGO (snapshot histórico) */}
+                        {p.utilities.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
+                              <span className="flex items-center gap-1.5">
+                                <HandCoins className="w-3.5 h-3.5" />
+                                Utilidades por estilista auxiliar
+                              </span>
+                              <span>{p.utilities.length} registros históricos</span>
+                            </div>
+                            {p.utilities.map((u) => (
+                              <div
+                                key={u.id}
+                                className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-center justify-between gap-2"
+                              >
+                                <div className="space-y-0.5 flex-1">
+                                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                                    {u.service_name}
+                                    {u.invoice_number && <span className="ml-2 text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    {u.customer_name || 'Consumidor Final'} · {formatDate(u.service_date || undefined)}
+                                    {u.main_stylist_name && ` · Ayudó a ${u.main_stylist_name}`}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad abonada</span>
+                                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                    {formatCurrency(u.amount_paid)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {/* RESUMEN AL FINAL DE LA LISTA */}
                         <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                          <div className="text-slate-600 dark:text-slate-300">
-                            <span>Cantidad de servicios: </span>
-                            <strong className="text-slate-900 dark:text-white">
-                              {p.services_count} servicios
-                            </strong>
+                          <div className="text-slate-600 dark:text-slate-300 space-y-0.5">
+                            <div>
+                              <span>Comisiones / ganancias: </span>
+                              <strong className="text-slate-900 dark:text-white">
+                                {formatCurrency(p.commissions_total)} ({p.services_count} servicios)
+                              </strong>
+                            </div>
+                            {p.utilities_count > 0 && (
+                              <div>
+                                <span>Utilidades adicionales: </span>
+                                <strong className="text-emerald-700 dark:text-emerald-400">
+                                  {formatCurrency(p.utilities_total)} ({p.utilities_count})
+                                </strong>
+                              </div>
+                            )}
                           </div>
                           <div className="text-right">
                             <span className="text-slate-500 mr-2">Importe histórico total:</span>
@@ -871,7 +1033,11 @@ export const StylistPaymentsView: React.FC = () => {
                 <p className="font-bold">¿Deseas revertir este pago histórico?</p>
                 <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
                   Esta operación anulará el comprobante de liquidación y regresará automáticamente los{' '}
-                  <strong>{revertingPayout.services_count} servicios abonados</strong> (por un total de{' '}
+                  <strong>
+                    {revertingPayout.services_count} servicios abonados
+                    {revertingPayout.utilities_count > 0 && ` y ${revertingPayout.utilities_count} utilidades`}
+                  </strong>{' '}
+                  (por un total de{' '}
                   <strong>{formatCurrency(revertingPayout.total_amount)}</strong>) a la sección de{' '}
                   <strong>Por pagar</strong> de {revertingPayout.stylist_name}.
                 </p>
@@ -1103,6 +1269,49 @@ export const StylistPaymentsView: React.FC = () => {
           </form>
         </Modal>
       )}
+
+      {/* MODAL: EXCLUIR UTILIDAD PENDIENTE */}
+      <Modal
+        isOpen={Boolean(cancellingUtility)}
+        onClose={() => setCancellingUtility(null)}
+        title="Excluir utilidad pendiente"
+        subtitle={
+          cancellingUtility
+            ? `${cancellingUtility.stylistName} · ${cancellingUtility.item.service_name} · ${formatCurrency(cancellingUtility.item.amount_to_pay)}`
+            : ''
+        }
+      >
+        <form onSubmit={handleConfirmCancelUtility} className="space-y-4">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            La utilidad quedará como «cancelada» y no se incluirá en ninguna liquidación. La venta y la comisión de la
+            estilista principal no se modifican.
+          </p>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              Contraseña de Administrador <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={cancelUtilityPassword}
+              onChange={(e) => setCancelUtilityPassword(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Motivo (opcional)</label>
+            <input
+              value={cancelUtilityReason}
+              onChange={(e) => setCancelUtilityReason(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCancellingUtility(null)}>Cancelar</Button>
+            <Button type="submit" variant="danger" isLoading={isCancellingUtility}>Excluir utilidad</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

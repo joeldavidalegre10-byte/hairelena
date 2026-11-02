@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { UtilitiesService } from '../utilities/utilities.service.js';
 
 export class StylistsService {
   static async list() {
@@ -126,7 +127,8 @@ export class StylistsService {
    * Eliminación lógica: el estilista deja de existir para el sistema (no aparece
    * en listados ni se puede editar) pero su fila queda en la base de datos con
    * `deleted_at` marcado, así se conservan sus pagos, liquidaciones y ventas.
-   * Las comisiones pendientes (aún no pagadas) y los márgenes personalizados se quitan.
+   * Las comisiones pendientes (aún no pagadas) y los márgenes personalizados se quitan;
+   * sus utilidades pendientes como auxiliar pasan a "canceladas".
    */
   static async remove(
     id: string,
@@ -143,6 +145,8 @@ export class StylistsService {
     }
 
     await db.prepare("DELETE FROM commissions WHERE stylist_id = ? AND status = 'pending'").run(id);
+    // Utilidades pendientes como auxiliar: dejan de ser cobrables (quedan como "canceladas", no se borran)
+    await UtilitiesService.cancelPendingForStylist(id, 'Estilista eliminada del sistema');
     await db.prepare('DELETE FROM service_stylist_margins WHERE stylist_id = ?').run(id);
     await db.prepare(`
       UPDATE stylists

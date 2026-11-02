@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { getDb, transaction } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { UtilitiesService } from '../utilities/utilities.service.js';
 
 export interface CreateSaleInput {
   register_id?: string;
@@ -18,6 +19,8 @@ export interface CreateSaleInput {
     quantity: number;
     unit_price: number;
     stylist_id?: string;
+    /** Estilista auxiliar (opcional). La utilidad la calcula siempre el servidor. */
+    helper_stylist_id?: string | null;
   }>;
 }
 
@@ -41,6 +44,7 @@ const ITEM_NUMERIC_FIELDS = [
   'commission_amount',
   'profit_margin_percent',
   'profit_amount',
+  'utility_amount',
 ];
 
 function normalizeRow<T extends Record<string, any>>(row: T, fields: string[]): T {
@@ -97,10 +101,16 @@ export class SalesService {
 
     // Una sola consulta para todos los ítems (evita una consulta por venta)
     const itemsSql = `
-      SELECT si.*, st.full_name as stylist_name
+      SELECT si.*, st.full_name as stylist_name,
+             ut.helper_stylist_id as helper_stylist_id,
+             hst.full_name as helper_stylist_name,
+             ut.amount as utility_amount,
+             ut.status as utility_status
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       LEFT JOIN stylists st ON si.stylist_id = st.id
+      LEFT JOIN utilities ut ON ut.sale_item_id = si.id
+      LEFT JOIN stylists hst ON ut.helper_stylist_id = hst.id
       ${onlyCashier ? 'WHERE s.cashier_id = ?' : ''}
     `;
     const allItems = (onlyCashier
@@ -134,9 +144,15 @@ export class SalesService {
     if (!sale) throw new AppError('Venta no encontrada', 404);
 
     const items = (await db.prepare(`
-      SELECT si.*, st.full_name as stylist_name
+      SELECT si.*, st.full_name as stylist_name,
+             ut.helper_stylist_id as helper_stylist_id,
+             hst.full_name as helper_stylist_name,
+             ut.amount as utility_amount,
+             ut.status as utility_status
       FROM sale_items si
       LEFT JOIN stylists st ON si.stylist_id = st.id
+      LEFT JOIN utilities ut ON ut.sale_item_id = si.id
+      LEFT JOIN stylists hst ON ut.helper_stylist_id = hst.id
       WHERE si.sale_id = ?
     `).all(id)) as any[];
 
@@ -170,7 +186,18 @@ export class SalesService {
       if (it.item_type === 'service' && !it.stylist_id) {
         throw new AppError(`El servicio "${it.item_name}" requiere obligatoriamente la selección de un estilista responsable`, 400);
       }
-      return { ...it, quantity, unit_price: unitPrice };
+      // Estilista auxiliar (opcional): la validación completa (habilitación, servicio,
+      // monto) se hace en el servidor dentro de la transacción; aquí solo lo evidente.
+      const helperId = typeof it.helper_stylist_id === 'string' ? it.helper_stylist_id.trim() : '';
+      if (helperId) {
+        if (it.item_type !== 'service') {
+          throw new AppError(`Solo los servicios admiten estilista auxiliar ("${it.item_name}" no es un servicio)`, 400);
+        }
+        if (helperId === it.stylist_id) {
+          throw new AppError(`En "${it.item_name}" la estilista auxiliar no puede ser la misma que la principal`, 400);
+        }
+      }
+      return { ...it, helper_stylist_id: helperId || null, quantity, unit_price: unitPrice };
     });
 
     const input: CreateSaleInput = { ...rawInput, items };
@@ -197,6 +224,22 @@ export class SalesService {
 
       // 2. Obtener configuración general de margen de ganancia
       const defaultProfitMargin = Number(await SettingsService.getDefaultProfitMargin());
+
+      // 2b. Utilidad de estilista auxiliar: se valida y calcula ANTES de insertar nada.
+      // Si alguna línea no cumple las reglas, la venta completa se rechaza (rollback).
+      const utilityPlans = new Map<number, Awaited<ReturnType<typeof UtilitiesService.prepareForSaleItem>>>();
+      if (input.items.some((it) => it.helper_stylist_id)) {
+        const generalUtility = await UtilitiesService.getGeneral();
+        for (let index = 0; index < input.items.length; index++) {
+          const it = input.items[index];
+          if (it.helper_stylist_id) {
+            utilityPlans.set(
+              index,
+              await UtilitiesService.prepareForSaleItem(it, it.helper_stylist_id, generalUtility)
+            );
+          }
+        }
+      }
 
       const saleId = `sale-${crypto.randomUUID().slice(0, 8)}`;
       const now = new Date().toISOString();
@@ -255,7 +298,8 @@ export class SalesService {
 
       const processedItems: any[] = [];
 
-      for (const item of input.items) {
+      for (let itemIndex = 0; itemIndex < input.items.length; itemIndex++) {
+        const item = input.items[itemIndex];
         const itemSubtotal = item.quantity * item.unit_price;
         const itemId = `si-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -336,10 +380,38 @@ export class SalesService {
           );
         }
 
+        // Registrar la utilidad de la estilista auxiliar (ingreso extra independiente de la comisión)
+        const utilityPlan = utilityPlans.get(itemIndex);
+        let utilityInfo: Record<string, any> = {};
+        if (utilityPlan && item.stylist_id) {
+          const utilityId = await UtilitiesService.insertForSaleItem({
+            saleId,
+            saleItemId: itemId,
+            serviceId: utilityPlan.service_id,
+            serviceName: item.item_name,
+            mainStylistId: item.stylist_id,
+            helperStylistId: utilityPlan.helper.id,
+            quantity: utilityPlan.quantity,
+            unitAmount: utilityPlan.unit_amount,
+            amount: utilityPlan.amount,
+            source: utilityPlan.source,
+            invoiceNumber,
+            createdAt: now,
+          });
+          utilityInfo = {
+            utility_id: utilityId,
+            helper_stylist_id: utilityPlan.helper.id,
+            helper_stylist_name: utilityPlan.helper.full_name,
+            utility_amount: utilityPlan.amount,
+            utility_status: 'pending',
+          };
+        }
+
         processedItems.push({
           id: itemId,
           sale_id: saleId,
           ...item,
+          ...utilityInfo,
           subtotal: itemSubtotal,
           commission_rate: commRate,
           commission_amount: commAmount,
@@ -404,6 +476,11 @@ export class SalesService {
           400
         );
       }
+
+      // Utilidades de estilistas auxiliares: si alguna ya fue liquidada no se puede anular
+      // (igual que las comisiones); las pendientes pasan a "cancelada".
+      const utilityCancelReason = reason && reason.trim() ? reason.trim() : 'Error en cobro corregido por administrador';
+      const utilitiesCancelled = await UtilitiesService.cancelForSale(saleId, `Venta anulada: ${utilityCancelReason}`);
 
       // Obtener ítems de la venta
       const items = (await db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(saleId)) as any[];
@@ -480,6 +557,7 @@ export class SalesService {
           total: Number(sale.total),
           cash_reverted: cashReverted,
           items_count: items.length,
+          utilities_cancelled: utilitiesCancelled,
           reason: cancelReason,
         }),
         now

@@ -15,6 +15,7 @@ router.post('/payouts/:id/revert', CommissionsController.revertPayout);
 router.get('/payouts', CommissionsController.listPayouts);
 router.get('/payouts/:id', CommissionsController.getPayoutById);
 router.delete('/pending/:id', CommissionsController.deletePendingCommission);
+router.delete('/utilities/:id', CommissionsController.cancelPendingUtility);
 router.delete('/stylists/:stylistId/pending', CommissionsController.deleteAllPendingByStylist);
 router.delete('/:id', CommissionsController.deletePendingCommission);
 

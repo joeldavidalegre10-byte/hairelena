@@ -329,6 +329,93 @@ CREATE TABLE IF NOT EXISTS audit_logs (
         ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------------
+-- MÓDULO UTILIDAD (ingreso extra de la estilista auxiliar)
+-- Monto general: tabla settings (utility_general_amount / utility_general_enabled)
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS service_utilities (
+    id          VARCHAR(64)   NOT NULL,
+    service_id  VARCHAR(64)   NOT NULL,
+    amount      DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+    is_enabled  TINYINT(1)    NOT NULL DEFAULT 1,
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_service_utilities_service (service_id),
+    CONSTRAINT chk_service_utilities_amount CHECK (amount >= 0),
+    CONSTRAINT fk_service_utilities_service FOREIGN KEY (service_id) REFERENCES services(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS stylist_utility_settings (
+    stylist_id  VARCHAR(64) NOT NULL,
+    is_enabled  TINYINT(1)  NOT NULL DEFAULT 0,
+    updated_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (stylist_id),
+    CONSTRAINT fk_stylist_utility_stylist FOREIGN KEY (stylist_id) REFERENCES stylists(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS utilities (
+    id                VARCHAR(64)   NOT NULL,
+    sale_id           VARCHAR(64)   NOT NULL,
+    sale_item_id      VARCHAR(64)   NOT NULL,
+    service_id        VARCHAR(64)   NULL,
+    service_name      VARCHAR(191)  NOT NULL,
+    main_stylist_id   VARCHAR(64)   NULL,
+    helper_stylist_id VARCHAR(64)   NOT NULL,
+    quantity          INT           NOT NULL DEFAULT 1,
+    unit_amount       DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+    amount            DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+    source            VARCHAR(20)   NOT NULL DEFAULT 'general',
+    status            VARCHAR(20)   NOT NULL DEFAULT 'pending',
+    payout_id         VARCHAR(64)   NULL,
+    paid_at           DATETIME      NULL,
+    cancelled_at      DATETIME      NULL,
+    cancel_reason     VARCHAR(500)  NULL,
+    notes             TEXT          NULL,
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_utilities_sale_item (sale_item_id),
+    KEY idx_utilities_helper_status (helper_stylist_id, status),
+    KEY idx_utilities_sale (sale_id),
+    KEY idx_utilities_payout (payout_id),
+    CONSTRAINT chk_utilities_status CHECK (status IN ('pending', 'paid', 'cancelled')),
+    CONSTRAINT chk_utilities_source CHECK (source IN ('service', 'general')),
+    CONSTRAINT chk_utilities_amount CHECK (amount >= 0 AND unit_amount >= 0 AND quantity > 0),
+    CONSTRAINT fk_utilities_sale FOREIGN KEY (sale_id) REFERENCES sales(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_utilities_sale_item FOREIGN KEY (sale_item_id) REFERENCES sale_items(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_utilities_main_stylist FOREIGN KEY (main_stylist_id) REFERENCES stylists(id)
+        ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT fk_utilities_helper_stylist FOREIGN KEY (helper_stylist_id) REFERENCES stylists(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_utilities_payout FOREIGN KEY (payout_id) REFERENCES stylist_payouts(id)
+        ON UPDATE CASCADE ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS stylist_payout_utility_items (
+    id                VARCHAR(64)   NOT NULL,
+    payout_id         VARCHAR(64)   NOT NULL,
+    utility_id        VARCHAR(64)   NULL,
+    service_name      VARCHAR(191)  NOT NULL,
+    customer_name     VARCHAR(191)  NULL,
+    main_stylist_name VARCHAR(191)  NULL,
+    invoice_number    VARCHAR(100)  NULL,
+    service_date      DATETIME      NULL,
+    amount_paid       DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_payout_utility_items_payout (payout_id),
+    KEY idx_payout_utility_items_utility (utility_id),
+    CONSTRAINT fk_payout_utility_items_payout FOREIGN KEY (payout_id) REFERENCES stylist_payouts(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_payout_utility_items_utility FOREIGN KEY (utility_id) REFERENCES utilities(id)
+        ON UPDATE CASCADE ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

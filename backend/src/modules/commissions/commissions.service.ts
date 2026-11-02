@@ -16,13 +16,35 @@ export interface PendingServiceDetail {
   invoice_number: string;
 }
 
+/** Utilidad pendiente de una estilista auxiliar (ingreso extra por ayudar en un servicio). */
+export interface PendingUtilityDetail {
+  utility_id: string;
+  sale_id: string;
+  sale_item_id: string;
+  service_name: string;
+  customer_name: string;
+  service_date: string;
+  main_stylist_name: string | null;
+  quantity: number;
+  amount_to_pay: number;
+  invoice_number: string;
+}
+
 export interface StylistPendingSummary {
   stylist_id: string;
   stylist_name: string;
   stylist_email: string | null;
+  /** Cantidad de servicios con comisión pendiente (sin contar utilidades). */
   pending_services_count: number;
+  /** Total a pagar = comisiones pendientes + utilidades pendientes. */
   total_pending_amount: number;
+  /** Solo comisiones / ganancias habituales. */
+  total_pending_commissions: number;
+  pending_utilities_count: number;
+  /** Solo utilidades adicionales. */
+  total_pending_utilities: number;
   services: PendingServiceDetail[];
+  utilities: PendingUtilityDetail[];
 }
 
 export interface PayoutServiceItem {
@@ -40,16 +62,36 @@ export interface PayoutServiceItem {
   created_at: string;
 }
 
+/** Detalle inmutable de una utilidad incluida en una liquidación. */
+export interface PayoutUtilityItem {
+  id: string;
+  payout_id: string;
+  utility_id: string | null;
+  service_name: string;
+  customer_name: string | null;
+  main_stylist_name: string | null;
+  invoice_number: string | null;
+  service_date: string | null;
+  amount_paid: number;
+  created_at: string;
+}
+
 export interface StylistPayoutRecord {
   id: string;
   stylist_id: string;
   stylist_name: string;
+  /** Total pagado = comisiones + utilidades. */
   total_amount: number;
+  /** Cantidad de servicios con comisión (sin contar utilidades). */
   services_count: number;
+  commissions_total: number;
+  utilities_total: number;
+  utilities_count: number;
   status: 'completed' | 'cancelled';
   notes: string | null;
   created_at: string;
   services: PayoutServiceItem[];
+  utilities: PayoutUtilityItem[];
 }
 
 // MySQL devuelve DECIMAL/SUM como string en mysql2: normalizamos a número.
@@ -86,17 +128,44 @@ const mapPayoutItem = (it: any): PayoutServiceItem => ({
   created_at: it.created_at,
 });
 
-const mapPayout = (p: any, items: any[]): StylistPayoutRecord => ({
-  id: p.id,
-  stylist_id: p.stylist_id,
-  stylist_name: p.stylist_name,
-  total_amount: num(p.total_amount),
-  services_count: num(p.services_count),
-  status: p.status,
-  notes: p.notes,
-  created_at: p.created_at,
-  services: items.map(mapPayoutItem),
+const UTILITY_ITEM_COLUMNS = `
+  id, payout_id, utility_id, service_name, customer_name, main_stylist_name,
+  invoice_number, service_date, amount_paid, created_at
+`;
+
+const mapUtilityItem = (it: any): PayoutUtilityItem => ({
+  id: it.id,
+  payout_id: it.payout_id,
+  utility_id: it.utility_id ?? null,
+  service_name: it.service_name,
+  customer_name: it.customer_name ?? null,
+  main_stylist_name: it.main_stylist_name ?? null,
+  invoice_number: it.invoice_number ?? null,
+  service_date: it.service_date ?? null,
+  amount_paid: num(it.amount_paid),
+  created_at: it.created_at,
 });
+
+const mapPayout = (p: any, items: any[], utilityItems: any[] = []): StylistPayoutRecord => {
+  const utilities = utilityItems.map(mapUtilityItem);
+  const utilitiesTotal = utilities.reduce((sum, u) => sum + u.amount_paid, 0);
+  const totalAmount = num(p.total_amount);
+  return {
+    id: p.id,
+    stylist_id: p.stylist_id,
+    stylist_name: p.stylist_name,
+    total_amount: totalAmount,
+    services_count: num(p.services_count),
+    commissions_total: Math.max(0, totalAmount - utilitiesTotal),
+    utilities_total: utilitiesTotal,
+    utilities_count: utilities.length,
+    status: p.status,
+    notes: p.notes,
+    created_at: p.created_at,
+    services: items.map(mapPayoutItem),
+    utilities,
+  };
+};
 
 export class CommissionsService {
   /**
@@ -143,7 +212,7 @@ export class CommissionsService {
     // Agrupar por estilista
     const stylistMap = new Map<string, StylistPendingSummary>();
 
-    for (const r of rows) {
+    const ensureEntry = (r: { stylist_id: string; stylist_name: string; stylist_email?: string | null }) => {
       if (!stylistMap.has(r.stylist_id)) {
         stylistMap.set(r.stylist_id, {
           stylist_id: r.stylist_id,
@@ -151,12 +220,20 @@ export class CommissionsService {
           stylist_email: r.stylist_email || null,
           pending_services_count: 0,
           total_pending_amount: 0,
+          total_pending_commissions: 0,
+          pending_utilities_count: 0,
+          total_pending_utilities: 0,
           services: [],
+          utilities: [],
         });
       }
+      return stylistMap.get(r.stylist_id)!;
+    };
 
-      const entry = stylistMap.get(r.stylist_id)!;
+    for (const r of rows) {
+      const entry = ensureEntry(r);
       entry.pending_services_count += 1;
+      entry.total_pending_commissions += num(r.amount_to_pay);
       entry.total_pending_amount += num(r.amount_to_pay);
       entry.services.push({
         commission_id: r.commission_id,
@@ -173,7 +250,62 @@ export class CommissionsService {
       });
     }
 
-    return Array.from(stylistMap.values()).filter((s) => s.pending_services_count > 0);
+    // Utilidades pendientes de las estilistas auxiliares (concepto adicional a las comisiones)
+    let utilityQuery = `
+      SELECT
+        u.id as utility_id,
+        u.amount as amount_to_pay,
+        u.quantity,
+        u.service_name,
+        u.sale_item_id,
+        st.id as stylist_id,
+        st.full_name as stylist_name,
+        st.email as stylist_email,
+        mst.full_name as main_stylist_name,
+        COALESCE(s.customer_name, 'Consumidor Final') as customer_name,
+        s.id as sale_id,
+        s.created_at as service_date,
+        s.invoice_number
+      FROM utilities u
+      JOIN stylists st ON u.helper_stylist_id = st.id
+      JOIN sales s ON u.sale_id = s.id
+      LEFT JOIN stylists mst ON u.main_stylist_id = mst.id
+      WHERE u.status = 'pending' AND s.status = 'completed'
+    `;
+    const utilityParams: any[] = [];
+
+    if (search && search.trim()) {
+      const term = `%${search.trim().toLowerCase()}%`;
+      utilityQuery += ` AND (LOWER(st.full_name) LIKE ? OR LOWER(u.service_name) LIKE ? OR LOWER(s.customer_name) LIKE ?)`;
+      utilityParams.push(term, term, term);
+    }
+
+    utilityQuery += ` ORDER BY st.full_name ASC, u.created_at ASC`;
+
+    const utilityRows = (await db.prepare(utilityQuery).all(...utilityParams)) as any[];
+
+    for (const r of utilityRows) {
+      const entry = ensureEntry(r);
+      entry.pending_utilities_count += 1;
+      entry.total_pending_utilities += num(r.amount_to_pay);
+      entry.total_pending_amount += num(r.amount_to_pay);
+      entry.utilities.push({
+        utility_id: r.utility_id,
+        sale_id: r.sale_id,
+        sale_item_id: r.sale_item_id,
+        service_name: r.service_name,
+        customer_name: r.customer_name,
+        service_date: r.service_date,
+        main_stylist_name: r.main_stylist_name ?? null,
+        quantity: num(r.quantity),
+        amount_to_pay: num(r.amount_to_pay),
+        invoice_number: r.invoice_number,
+      });
+    }
+
+    return Array.from(stylistMap.values())
+      .filter((s) => s.pending_services_count > 0 || s.pending_utilities_count > 0)
+      .sort((a, b) => a.stylist_name.localeCompare(b.stylist_name));
   }
 
   static async createPayout(stylistId: string, notes?: string): Promise<StylistPayoutRecord> {
@@ -203,11 +335,30 @@ export class CommissionsService {
         ORDER BY c.created_at ASC
       `).all(stylistId)) as any[];
 
-      if (!pending || pending.length === 0) {
+      // 1b. Utilidades pendientes de la estilista como auxiliar (concepto adicional)
+      const pendingUtilities = (await db.prepare(`
+        SELECT
+          u.id as utility_id,
+          u.amount,
+          u.service_name,
+          s.invoice_number,
+          COALESCE(s.customer_name, 'Consumidor Final') as customer_name,
+          s.created_at as service_date,
+          mst.full_name as main_stylist_name
+        FROM utilities u
+        JOIN sales s ON u.sale_id = s.id
+        LEFT JOIN stylists mst ON u.main_stylist_id = mst.id
+        WHERE u.helper_stylist_id = ? AND u.status = 'pending' AND s.status = 'completed'
+        ORDER BY u.created_at ASC
+      `).all(stylistId)) as any[];
+
+      if ((!pending || pending.length === 0) && (!pendingUtilities || pendingUtilities.length === 0)) {
         throw new AppError('El estilista no tiene servicios pendientes de pago', 400);
       }
 
-      const totalAmount = pending.reduce((sum, item) => sum + num(item.amount), 0);
+      const commissionsTotal = pending.reduce((sum, item) => sum + num(item.amount), 0);
+      const utilitiesTotal = pendingUtilities.reduce((sum, item) => sum + num(item.amount), 0);
+      const totalAmount = commissionsTotal + utilitiesTotal;
       if (totalAmount <= 0) {
         throw new AppError('El importe total a pagar debe ser mayor a 0', 400);
       }
@@ -215,7 +366,7 @@ export class CommissionsService {
       const payoutId = `payout-${crypto.randomUUID().slice(0, 8)}`;
       const now = new Date().toISOString();
 
-      // 2. Insertar cabecera del pago
+      // 2. Insertar cabecera del pago (total = comisiones + utilidades)
       await db.prepare(`
         INSERT INTO stylist_payouts (
           id, stylist_id, total_amount, services_count, status, notes, created_at
@@ -270,23 +421,86 @@ export class CommissionsService {
         });
       }
 
+      // 3b. Snapshot de las utilidades incluidas en el pago
+      const insertUtilityItem = db.prepare(`
+        INSERT INTO stylist_payout_utility_items (
+          id, payout_id, utility_id, service_name, customer_name, main_stylist_name,
+          invoice_number, service_date, amount_paid, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const payoutUtilities: PayoutUtilityItem[] = [];
+
+      for (const u of pendingUtilities) {
+        const itemId = `pui-${crypto.randomUUID().slice(0, 8)}`;
+        const amount = num(u.amount);
+
+        await insertUtilityItem.run(
+          itemId,
+          payoutId,
+          u.utility_id,
+          u.service_name,
+          u.customer_name,
+          u.main_stylist_name ?? null,
+          u.invoice_number ?? null,
+          u.service_date,
+          amount,
+          now
+        );
+
+        payoutUtilities.push({
+          id: itemId,
+          payout_id: payoutId,
+          utility_id: u.utility_id,
+          service_name: u.service_name,
+          customer_name: u.customer_name,
+          main_stylist_name: u.main_stylist_name ?? null,
+          invoice_number: u.invoice_number ?? null,
+          service_date: u.service_date,
+          amount_paid: amount,
+          created_at: now,
+        });
+      }
+
       // 4. Marcar comisiones como pagadas
-      const commissionIds = pending.map((p) => p.commission_id);
-      const placeholders = commissionIds.map(() => '?').join(',');
-      await db.prepare(`
-        UPDATE commissions
-        SET status = 'paid', paid_at = ?, payout_id = ?
-        WHERE id IN (${placeholders}) AND status = 'pending'
-      `).run(now, payoutId, ...commissionIds);
+      if (pending.length > 0) {
+        const commissionIds = pending.map((p) => p.commission_id);
+        const placeholders = commissionIds.map(() => '?').join(',');
+        await db.prepare(`
+          UPDATE commissions
+          SET status = 'paid', paid_at = ?, payout_id = ?
+          WHERE id IN (${placeholders}) AND status = 'pending'
+        `).run(now, payoutId, ...commissionIds);
 
-      // Prevención de pagos duplicados / colisión concurrente.
-      // Se cuenta lo que realmente quedó ligado a este pago (no depende de lo que devuelva run()).
-      const linked = (await db.prepare(
-        'SELECT COUNT(*) as n FROM commissions WHERE payout_id = ?'
-      ).get(payoutId)) as any;
+        // Prevención de pagos duplicados / colisión concurrente.
+        // Se cuenta lo que realmente quedó ligado a este pago (no depende de lo que devuelva run()).
+        const linked = (await db.prepare(
+          'SELECT COUNT(*) as n FROM commissions WHERE payout_id = ?'
+        ).get(payoutId)) as any;
 
-      if (num(linked?.n) !== commissionIds.length) {
-        throw new AppError('Conflicto de concurrencia: una o más comisiones ya fueron procesadas en otra operación', 409);
+        if (num(linked?.n) !== commissionIds.length) {
+          throw new AppError('Conflicto de concurrencia: una o más comisiones ya fueron procesadas en otra operación', 409);
+        }
+      }
+
+      // 4b. Marcar utilidades como pagadas (una utilidad solo puede pagarse una vez:
+      // el UPDATE exige status = 'pending' y luego se verifica cuántas quedaron ligadas).
+      if (pendingUtilities.length > 0) {
+        const utilityIds = pendingUtilities.map((u) => u.utility_id);
+        const utilityPlaceholders = utilityIds.map(() => '?').join(',');
+        await db.prepare(`
+          UPDATE utilities
+          SET status = 'paid', paid_at = ?, payout_id = ?
+          WHERE id IN (${utilityPlaceholders}) AND status = 'pending'
+        `).run(now, payoutId, ...utilityIds);
+
+        const linkedUtilities = (await db.prepare(
+          "SELECT COUNT(*) as n FROM utilities WHERE payout_id = ? AND status = 'paid'"
+        ).get(payoutId)) as any;
+
+        if (num(linkedUtilities?.n) !== utilityIds.length) {
+          throw new AppError('Conflicto de concurrencia: una o más utilidades ya fueron procesadas en otra operación', 409);
+        }
       }
 
       const stylist = (await db.prepare('SELECT full_name FROM stylists WHERE id = ?').get(stylistId)) as any;
@@ -297,10 +511,14 @@ export class CommissionsService {
         stylist_name: stylist?.full_name || 'Estilista',
         total_amount: totalAmount,
         services_count: pending.length,
+        commissions_total: commissionsTotal,
+        utilities_total: utilitiesTotal,
+        utilities_count: payoutUtilities.length,
         status: 'completed',
         notes: notes || null,
         created_at: now,
         services: payoutItems,
+        utilities: payoutUtilities,
       };
     });
   }
@@ -365,7 +583,29 @@ export class CommissionsService {
       }
     }
 
-    return payouts.map((p) => mapPayout(p, itemsByPayout.get(p.id) || []));
+    // Utilidades incluidas en cada pago (snapshot), en lotes igual que los ítems
+    const utilityItemsByPayout = new Map<string, any[]>();
+
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => '?').join(',');
+      const rows = (await db.prepare(`
+        SELECT ${UTILITY_ITEM_COLUMNS}
+        FROM stylist_payout_utility_items
+        WHERE payout_id IN (${placeholders})
+        ORDER BY service_date ASC
+      `).all(...chunk)) as any[];
+
+      for (const row of rows) {
+        const bucket = utilityItemsByPayout.get(row.payout_id);
+        if (bucket) bucket.push(row);
+        else utilityItemsByPayout.set(row.payout_id, [row]);
+      }
+    }
+
+    return payouts.map((p) =>
+      mapPayout(p, itemsByPayout.get(p.id) || [], utilityItemsByPayout.get(p.id) || [])
+    );
   }
 
   static async getPayoutById(payoutId: string): Promise<StylistPayoutRecord | null> {
@@ -394,7 +634,14 @@ export class CommissionsService {
       ORDER BY service_date ASC
     `).all(p.id)) as any[];
 
-    return mapPayout(p, items);
+    const utilityItems = (await db.prepare(`
+      SELECT ${UTILITY_ITEM_COLUMNS}
+      FROM stylist_payout_utility_items
+      WHERE payout_id = ?
+      ORDER BY service_date ASC
+    `).all(p.id)) as any[];
+
+    return mapPayout(p, items, utilityItems);
   }
 
   static async list(stylistId?: string, status?: string) {
@@ -453,10 +700,16 @@ export class CommissionsService {
     const paid = (await db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM commissions WHERE status = 'paid'").get()) as any;
     const count = (await db.prepare('SELECT COUNT(*) as count FROM commissions').get()) as any;
 
+    // Utilidades (concepto adicional, separado de las comisiones)
+    const utilPending = (await db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM utilities WHERE status = 'pending'").get()) as any;
+    const utilPaid = (await db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM utilities WHERE status = 'paid'").get()) as any;
+
     return {
       pendingTotal: num(pending?.total),
       paidTotal: num(paid?.total),
       totalCommissions: num(count?.count),
+      utilitiesPendingTotal: num(utilPending?.total),
+      utilitiesPaidTotal: num(utilPaid?.total),
     };
   }
 
@@ -488,6 +741,21 @@ export class CommissionsService {
       // Si el driver no informa filas afectadas, se usa la cantidad registrada en el pago
       const commissionsRestored = affected(updateResult) ?? num(payout.services_count);
 
+      // Las utilidades liquidadas en este pago vuelven a "pendiente" (podrán pagarse de nuevo,
+      // pero una sola vez: el pago revertido queda anulado). Las canceladas no se tocan.
+      const utilitiesBefore = (await db.prepare(
+        "SELECT COUNT(*) as n, COALESCE(SUM(amount), 0) as total FROM utilities WHERE payout_id = ? AND status = 'paid'"
+      ).get(payoutId)) as any;
+
+      await db.prepare(`
+        UPDATE utilities
+        SET status = 'pending', paid_at = NULL, payout_id = NULL
+        WHERE payout_id = ? AND status = 'paid'
+      `).run(payoutId);
+
+      const utilitiesRestored = num(utilitiesBefore?.n);
+      const utilitiesRestoredTotal = num(utilitiesBefore?.total);
+
       await db.prepare(`
         UPDATE stylist_payouts
         SET status = 'cancelled',
@@ -515,6 +783,8 @@ export class CommissionsService {
           total_amount: num(payout.total_amount),
           services_count: num(payout.services_count),
           commissions_restored: commissionsRestored,
+          utilities_restored: utilitiesRestored,
+          utilities_restored_total: utilitiesRestoredTotal,
           reason: reversionReason,
         }),
         now
@@ -524,6 +794,7 @@ export class CommissionsService {
         id: payoutId,
         status: 'cancelled',
         commissions_restored: commissionsRestored,
+        utilities_restored: utilitiesRestored,
         total_amount: num(payout.total_amount),
       };
     });

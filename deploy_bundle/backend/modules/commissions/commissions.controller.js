@@ -1,5 +1,6 @@
 import { CommissionsService } from './commissions.service.js';
 import { AuthService } from '../auth/auth.service.js';
+import { UtilitiesService } from '../utilities/utilities.service.js';
 export class CommissionsController {
     /**
      * Obtiene la lista de estilistas con servicios pendientes de pago
@@ -184,6 +185,40 @@ export class CommissionsController {
             res.json({
                 success: true,
                 message: 'Todos los servicios pendientes del estilista fueron eliminados exitosamente',
+                data,
+            });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * 3.4. Excluir una utilidad pendiente (estilista auxiliar) de la liquidación.
+     * Queda registrada como "cancelada" con su auditoría; no se borra.
+     */
+    static async cancelPendingUtility(req, res, next) {
+        try {
+            const adminPassword = req.body?.admin_password || req.body?.password;
+            if (!adminPassword) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Debe ingresar la contraseña de administrador para autorizar la exclusión de la utilidad',
+                });
+                return;
+            }
+            const isValid = await AuthService.verifyAdminPassword(adminPassword);
+            if (!isValid) {
+                res.status(401).json({
+                    success: false,
+                    message: 'Contraseña de administrador incorrecta. Verifique sus credenciales.',
+                });
+                return;
+            }
+            const userId = req.user?.id || 'u-admin-01';
+            const data = await UtilitiesService.cancelPending(userId, req.params.id, req.body?.reason);
+            res.json({
+                success: true,
+                message: 'Utilidad excluida exitosamente de la liquidación de la estilista',
                 data,
             });
         }
