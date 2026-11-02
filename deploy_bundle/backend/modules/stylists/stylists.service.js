@@ -7,6 +7,7 @@ export class StylistsService {
         const rows = (await db.prepare(`
       SELECT id, user_id, full_name, email, phone, commission_rate, specialties, is_active, created_at, updated_at
       FROM stylists
+      WHERE deleted_at IS NULL
       ORDER BY full_name ASC
     `).all());
         return rows.map((r) => ({
@@ -17,7 +18,7 @@ export class StylistsService {
     }
     static async getById(id) {
         const db = getDb();
-        const row = (await db.prepare('SELECT * FROM stylists WHERE id = ?').get(id));
+        const row = (await db.prepare('SELECT * FROM stylists WHERE id = ? AND deleted_at IS NULL').get(id));
         if (!row) {
             throw new AppError('Estilista no encontrado', 404);
         }
@@ -40,7 +41,7 @@ export class StylistsService {
     }
     static async update(id, payload) {
         const db = getDb();
-        const existing = await db.prepare('SELECT id FROM stylists WHERE id = ?').get(id);
+        const existing = await db.prepare('SELECT id FROM stylists WHERE id = ? AND deleted_at IS NULL').get(id);
         if (!existing) {
             throw new AppError('Estilista no encontrado', 404);
         }
@@ -81,5 +82,38 @@ export class StylistsService {
       WHERE id = ?
     `).run(...values);
         return this.getById(id);
+    }
+    /**
+     * Eliminación lógica: el estilista deja de existir para el sistema (no aparece
+     * en listados ni se puede editar) pero su fila queda en la base de datos con
+     * `deleted_at` marcado, así se conservan sus pagos, liquidaciones y ventas.
+     * Las comisiones pendientes (aún no pagadas) y los márgenes personalizados se quitan.
+     */
+    static async remove(id, reason, requestedBy, authorizedBy) {
+        const db = getDb();
+        const stylist = (await db
+            .prepare('SELECT id, full_name FROM stylists WHERE id = ? AND deleted_at IS NULL')
+            .get(id));
+        if (!stylist) {
+            throw new AppError('Estilista no encontrado', 404);
+        }
+        await db.prepare("DELETE FROM commissions WHERE stylist_id = ? AND status = 'pending'").run(id);
+        await db.prepare('DELETE FROM service_stylist_margins WHERE stylist_id = ?').run(id);
+        await db.prepare(`
+      UPDATE stylists
+      SET is_active = 0, deleted_at = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(new Date().toISOString(), id);
+        await db
+            .prepare(`
+        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+            .run(`aud-${crypto.randomUUID().slice(0, 12)}`, 'stylist.delete', 'stylist', id, requestedBy.id, requestedBy.fullName || null, JSON.stringify({
+            name: stylist.full_name,
+            reason,
+            requested_by: requestedBy,
+            authorized_by: authorizedBy,
+        }));
     }
 }

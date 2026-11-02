@@ -21,13 +21,14 @@ export class InventoryService {
         const db = getDb();
         return await db.prepare('SELECT * FROM categories ORDER BY name ASC').all();
     }
-    // Servicios
+    // Servicios (solo activos: los eliminados quedan ocultos pero conservan su historial)
     static async listServices() {
         const db = getDb();
         const rows = (await db.prepare(`
       SELECT s.*, c.name as category_name
       FROM services s
       LEFT JOIN categories c ON s.category_id = c.id
+      WHERE s.is_active = 1
       ORDER BY s.name ASC
     `).all());
         let variants = [];
@@ -80,6 +81,18 @@ export class InventoryService {
     `).run(id, payload.service_id, payload.name, payload.price, payload.duration_minutes || null, now);
         return await db.prepare('SELECT * FROM service_variants WHERE id = ?').get(id);
     }
+    static async getServiceWithVariants(id) {
+        const db = getDb();
+        const service = (await db.prepare('SELECT * FROM services WHERE id = ?').get(id));
+        const variants = (await db
+            .prepare('SELECT * FROM service_variants WHERE service_id = ? AND is_active = 1 ORDER BY price ASC')
+            .all(id));
+        return {
+            ...service,
+            price: Number(service.price),
+            variants: variants.map((v) => ({ ...v, price: Number(v.price) })),
+        };
+    }
     static async createService(payload) {
         const db = getDb();
         const id = `srv-${crypto.randomUUID().slice(0, 8)}`;
@@ -107,13 +120,7 @@ export class InventoryService {
                 }
             }
         }
-        const created = (await db.prepare('SELECT * FROM services WHERE id = ?').get(id));
-        const variants = (await db.prepare('SELECT * FROM service_variants WHERE service_id = ? AND is_active = 1').all(id));
-        return {
-            ...created,
-            price: Number(created.price),
-            variants: variants.map((v) => ({ ...v, price: Number(v.price) })),
-        };
+        return await InventoryService.getServiceWithVariants(id);
     }
     static async updateService(id, payload) {
         const db = getDb();
@@ -140,7 +147,7 @@ export class InventoryService {
         }
         if (payload.price !== undefined) {
             updates.push('price = ?');
-            values.push(payload.price);
+            values.push(Number(payload.price) || 0);
         }
         if (payload.cost !== undefined) {
             updates.push('cost = ?');
@@ -159,15 +166,48 @@ export class InventoryService {
             values.push(id);
             await db.prepare(`UPDATE services SET ${updates.join(', ')} WHERE id = ?`).run(...values);
         }
-        return await db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+        // Sincronizar opciones de precio (Niño, Joven, Adulto...)
+        if (Array.isArray(payload.variants)) {
+            const incoming = payload.variants.filter((v) => v && String(v.name || '').trim());
+            const current = (await db
+                .prepare('SELECT id FROM service_variants WHERE service_id = ? AND is_active = 1')
+                .all(id));
+            const currentIds = new Set(current.map((c) => c.id));
+            const keepIds = new Set(incoming.filter((v) => v.id && currentIds.has(v.id)).map((v) => v.id));
+            const now = new Date().toISOString();
+            // Desactivar las opciones que ya no están en la lista
+            for (const c of current) {
+                if (!keepIds.has(c.id)) {
+                    await db.prepare('UPDATE service_variants SET is_active = 0 WHERE id = ?').run(c.id);
+                }
+            }
+            for (const v of incoming) {
+                if (v.id && currentIds.has(v.id)) {
+                    await db
+                        .prepare('UPDATE service_variants SET name = ?, price = ? WHERE id = ?')
+                        .run(String(v.name).trim(), Number(v.price) || 0, v.id);
+                }
+                else {
+                    const varId = `var-${crypto.randomUUID().slice(0, 8)}`;
+                    await db
+                        .prepare(`
+              INSERT INTO service_variants (id, service_id, name, price, duration_minutes, is_active, created_at)
+              VALUES (?, ?, ?, ?, ?, 1, ?)
+            `)
+                        .run(varId, id, String(v.name).trim(), Number(v.price) || 0, v.duration_minutes || null, now);
+                }
+            }
+        }
+        return await InventoryService.getServiceWithVariants(id);
     }
-    // Productos
+    // Productos (solo activos)
     static async listProducts() {
         const db = getDb();
         const rows = (await db.prepare(`
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = 1
       ORDER BY p.name ASC
     `).all());
         return rows.map(normalizeProduct);
@@ -268,5 +308,34 @@ export class InventoryService {
         await db.prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?").run(newStock, id);
         const updated = await db.prepare('SELECT * FROM products WHERE id = ?').get(id);
         return normalizeProduct(updated);
+    }
+    /**
+     * Eliminación lógica: el registro se marca como inactivo (no se borra de la base)
+     * para no romper ventas, comisiones ni reportes anteriores.
+     * Deja constancia en audit_logs del motivo, quién lo pidió y qué admin autorizó.
+     */
+    static async deactivateItem(kind, id, reason, requestedBy, authorizedBy) {
+        const db = getDb();
+        const table = kind === 'service' ? 'services' : 'products';
+        const row = (await db.prepare(`SELECT id, name, is_active FROM ${table} WHERE id = ?`).get(id));
+        if (!row || Number(row.is_active) !== 1) {
+            throw new AppError(kind === 'service' ? 'Servicio no encontrado' : 'Producto no encontrado', 404);
+        }
+        await db.prepare(`UPDATE ${table} SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+        if (kind === 'service') {
+            await db.prepare('UPDATE service_variants SET is_active = 0 WHERE service_id = ?').run(id);
+        }
+        await db
+            .prepare(`
+        INSERT INTO audit_logs (id, action, target_type, target_id, user_id, user_name, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+            .run(`aud-${crypto.randomUUID().slice(0, 12)}`, `${kind}.delete`, kind, id, requestedBy.id, requestedBy.fullName, JSON.stringify({
+            name: row.name,
+            reason,
+            requested_by: requestedBy,
+            authorized_by: authorizedBy,
+        }));
+        return { id, name: row.name };
     }
 }
