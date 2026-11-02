@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { CommissionsController } from './commissions.controller.js';
 import { authenticate } from '../../middleware/auth.js';
-import { authorize } from '../../middleware/roles.js';
+import { requirePermission } from '../../middleware/roles.js';
 const router = Router();
 router.use(authenticate);
-router.use(authorize(['admin']));
+router.use(requirePermission('stylists'));
 // Módulo de Pagos a Estilistas
 router.get('/pending', CommissionsController.getPendingByStylist);
 router.post('/payouts', CommissionsController.createPayout);

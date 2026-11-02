@@ -18,25 +18,25 @@ interface NavItem {
   id: ActiveTab;
   label: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
 }
 
 const allNavItems: NavItem[] = [
   { id: 'pos', label: 'Punto de Venta', icon: ShoppingBag },
   { id: 'sales', label: 'Historial Tickets', icon: Receipt },
-  { id: 'inventory', label: 'Servicios & Stock', icon: Package, adminOnly: true },
-  { id: 'stylists', label: 'Estilistas & Pagos', icon: Users, adminOnly: true },
+  { id: 'inventory', label: 'Servicios & Stock', icon: Package },
+  { id: 'stylists', label: 'Estilistas & Pagos', icon: Users },
   { id: 'register', label: 'Control de Caja', icon: Vault },
-  { id: 'margins', label: 'Márgenes de ganancia', icon: TrendingUp, adminOnly: true },
-  { id: 'settings', label: 'Configuración', icon: Settings, adminOnly: true },
-  { id: 'reports', label: 'Reportes & Métricas', icon: BarChart3, adminOnly: true },
+  { id: 'margins', label: 'Márgenes de ganancia', icon: TrendingUp },
+  { id: 'settings', label: 'Configuración', icon: Settings },
+  { id: 'reports', label: 'Reportes & Métricas', icon: BarChart3 },
 ];
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, cart, logout, user, currentRegister } = useApp();
+  const { activeTab, setActiveTab, cart, logout, user, currentRegister, hasPermission } = useApp();
 
   const isCashier = user?.role === 'cashier';
-  const visibleNavItems = allNavItems.filter((item) => !isCashier || !item.adminOnly);
+  // Cada módulo se muestra solo si el usuario tiene el permiso del mismo nombre
+  const visibleNavItems = allNavItems.filter((item) => hasPermission(item.id));
 
   return (
     <aside className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 flex flex-col justify-between p-4 shrink-0 transition-colors duration-200">
@@ -84,8 +84,10 @@ export const Sidebar: React.FC = () => {
       <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
         {/* Tarjeta de Caja (Referencia) */}
         <div
-          onClick={() => setActiveTab('register')}
-          className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#14151b] border border-slate-200 dark:border-[#1f2128] flex items-center justify-between cursor-pointer hover:border-emerald-500/40 transition-colors"
+          onClick={() => hasPermission('register') && setActiveTab('register')}
+          className={`p-2.5 rounded-xl bg-slate-50 dark:bg-[#14151b] border border-slate-200 dark:border-[#1f2128] flex items-center justify-between transition-colors ${
+            hasPermission('register') ? 'cursor-pointer hover:border-emerald-500/40' : ''
+          }`}
         >
           <div className="flex items-center gap-2">
             <span

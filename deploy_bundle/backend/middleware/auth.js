@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { getDb } from '../db/database.js';
+import { resolvePermissions } from '../config/permissions.js';
 export const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -15,7 +16,7 @@ export const authenticate = async (req, res, next) => {
         const decoded = jwt.verify(token, env.JWT_SECRET);
         const db = getDb();
         const user = (await db.prepare(`
-      SELECT id, email, full_name, role, is_active
+      SELECT id, email, full_name, role, is_active, permissions
       FROM users
       WHERE id = ?
     `).get(decoded.id));
@@ -26,7 +27,7 @@ export const authenticate = async (req, res, next) => {
             });
             return;
         }
-        if (user.is_active !== 1) {
+        if (Number(user.is_active) !== 1) {
             res.status(403).json({
                 success: false,
                 message: 'Usuario inactivo. Contacte al administrador.',
@@ -38,6 +39,7 @@ export const authenticate = async (req, res, next) => {
             email: user.email,
             role: user.role,
             fullName: user.full_name,
+            permissions: resolvePermissions(user.role, user.permissions),
         };
         next();
     }

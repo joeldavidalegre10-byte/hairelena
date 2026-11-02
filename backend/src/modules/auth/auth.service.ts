@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { getDb } from '../../db/database.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { resolvePermissions } from '../../config/permissions.js';
 
 // Hash falso para comparar siempre contra bcrypt, exista o no el usuario.
 // Evita que el tiempo de respuesta revele qué usuarios existen.
@@ -22,7 +23,7 @@ export class AuthService {
     const cleanIdentifier = identifier.trim();
     const db = getDb();
     const user = (await db.prepare(`
-      SELECT id, username, email, password_hash, full_name, role, is_active
+      SELECT id, username, email, password_hash, full_name, role, is_active, permissions
       FROM users
       WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)
     `).get(cleanIdentifier, cleanIdentifier)) as {
@@ -33,6 +34,7 @@ export class AuthService {
       full_name: string;
       role: 'admin' | 'cashier' | 'stylist';
       is_active: number;
+      permissions?: string | null;
     } | undefined;
 
     // Siempre se ejecuta una comparación bcrypt (async, no bloquea el servidor).
@@ -69,22 +71,24 @@ export class AuthService {
         email: user.email,
         role: user.role,
         fullName: user.full_name,
+        permissions: resolvePermissions(user.role, user.permissions),
       },
     };
   }
 
   static async getProfile(userId: string) {
     const db = getDb();
-    const user = await db.prepare(`
-      SELECT id, username, email, full_name, role, phone, is_active, created_at
+    const user = (await db.prepare(`
+      SELECT id, username, email, full_name, role, phone, is_active, permissions, created_at
       FROM users
       WHERE id = ?
-    `).get(userId);
+    `).get(userId)) as any;
 
     if (!user) {
       throw new AppError('Usuario no encontrado', 404);
     }
-    return user;
+    const { permissions, ...rest } = user;
+    return { ...rest, permissions: resolvePermissions(user.role, permissions) };
   }
 
   /**

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     role            VARCHAR(20)  NOT NULL DEFAULT 'cashier',
     phone           VARCHAR(40)  NULL,
     is_active       TINYINT(1)   NOT NULL DEFAULT 1,
+    permissions     LONGTEXT     NULL DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

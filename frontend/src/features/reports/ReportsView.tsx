@@ -25,13 +25,13 @@ import {
 import { useApp } from '../../context/AppContext';
 
 export const ReportsView: React.FC = () => {
-  const { user, notify } = useApp();
+  const { user, notify, hasPermission } = useApp();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('day');
 
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (hasPermission('reports')) {
       loadReports(period);
     }
   }, [user, period]);
@@ -57,13 +57,13 @@ export const ReportsView: React.FC = () => {
   }[period];
 
   // Restricción de seguridad
-  if (user?.role !== 'admin') {
+  if (!hasPermission('reports')) {
     return (
       <div className="p-8 flex flex-col items-center justify-center h-full text-center bg-slate-50 dark:bg-slate-950">
         <ShieldAlert className="w-12 h-12 text-rose-500 mb-3" />
         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Acceso Restringido</h2>
         <p className="text-xs text-slate-500 max-w-md">
-          Los reportes financieros y auditorías globales están reservados exclusivamente para el Administrador.
+          No tienes permiso para ver los reportes financieros. Pídele acceso a un administrador.
         </p>
       </div>
     );

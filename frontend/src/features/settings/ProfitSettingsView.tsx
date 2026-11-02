@@ -21,7 +21,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 
 export const ProfitSettingsView: React.FC = () => {
-  const { user, notify } = useApp();
+  const { notify, hasPermission } = useApp();
   const [generalMargin, setGeneralMargin] = useState<number>(60);
   const [services, setServices] = useState<ServiceWithMargins[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -317,13 +317,13 @@ export const ProfitSettingsView: React.FC = () => {
     }
   };
 
-  if (user?.role !== 'admin') {
+  if (!hasPermission('margins')) {
     return (
       <div className="p-8 flex flex-col items-center justify-center h-full text-center bg-slate-50 dark:bg-slate-950">
         <ShieldAlert className="w-12 h-12 text-rose-500 mb-3" />
         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Acceso Restringido</h2>
         <p className="text-xs text-slate-500 max-w-md">
-          Esta sección está reservada exclusivamente para el Administrador del salón.
+          No tienes permiso para acceder a esta sección. Pídele acceso a un administrador.
         </p>
       </div>
     );

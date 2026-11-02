@@ -272,6 +272,18 @@ function ensureSqliteStylistDeletedColumn(raw) {
         console.error('No se pudo agregar la columna stylists.deleted_at:', error);
     }
 }
+function ensureSqliteUserPermissionsColumn(raw) {
+    try {
+        const cols = raw.prepare('PRAGMA table_info(users)').all();
+        if (cols.length > 0 && !cols.some((c) => c.name === 'permissions')) {
+            raw.exec('ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT NULL');
+            console.log('Columna users.permissions agregada (SQLite).');
+        }
+    }
+    catch (error) {
+        console.error('No se pudo agregar la columna users.permissions:', error);
+    }
+}
 export const initDatabase = () => {
     if (dbInstance)
         return dbInstance;
@@ -319,6 +331,7 @@ export const initDatabase = () => {
         }
     }
     ensureSqliteStylistDeletedColumn(raw);
+    ensureSqliteUserPermissionsColumn(raw);
     seedDefaultUsers(raw);
     sqliteRaw = raw;
     dbInstance = new SQLiteAdapter(raw);
@@ -377,6 +390,21 @@ export const verifyDatabase = async () => {
             }
             catch (error) {
                 console.warn('No se pudo agregar stylists.deleted_at automáticamente. Ejecutá el SQL de sql/agregar_deleted_at_stylists.sql en phpMyAdmin.', error);
+            }
+            // Columna con los permisos de cada usuario (JSON). Se agrega sola si falta.
+            try {
+                const [permCols] = await conn.query(`SELECT COLUMN_NAME
+           FROM information_schema.columns
+           WHERE table_schema = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'permissions'`);
+                if (permCols.length === 0) {
+                    await conn.query('ALTER TABLE users ADD COLUMN permissions LONGTEXT NULL DEFAULT NULL AFTER is_active');
+                    console.log('Columna users.permissions agregada (MySQL).');
+                }
+            }
+            catch (error) {
+                console.warn('No se pudo agregar users.permissions automáticamente. Ejecutá sql/agregar_permisos_usuarios.sql en phpMyAdmin.', error);
             }
             console.log('Conexión MySQL verificada correctamente.');
             console.log(`Estructura verificada: ${requiredTables.length} tablas.`);

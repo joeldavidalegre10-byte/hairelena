@@ -1,5 +1,5 @@
 import { api } from './api';
-import { User } from '../types';
+import { User, PermissionKey } from '../types';
 
 export interface CreateUserData {
   username: string;
@@ -7,6 +7,17 @@ export interface CreateUserData {
   role: 'admin' | 'cashier' | 'stylist';
   full_name?: string;
   phone?: string;
+  permissions?: PermissionKey[];
+}
+
+export interface UpdateUserData {
+  username?: string;
+  full_name?: string;
+  role?: 'admin' | 'cashier' | 'stylist';
+  phone?: string;
+  is_active?: boolean;
+  password?: string;
+  permissions?: PermissionKey[];
 }
 
 export const usersService = {
@@ -20,8 +31,12 @@ export const usersService = {
     return res.data;
   },
 
-  update: async (id: string, data: Partial<User> & { password?: string }) => {
+  update: async (id: string, data: UpdateUserData) => {
     const res = await api.put<{ success: boolean; message: string; data: User }>(`/users/${id}`, data);
     return res.data;
+  },
+
+  remove: async (id: string, password: string) => {
+    await api.delete<{ success: boolean; message: string }>(`/users/${id}`, { password });
   },
 };

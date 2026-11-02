@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { SettingsController } from './settings.controller.js';
 import { authenticate } from '../../middleware/auth.js';
-import { authorize } from '../../middleware/roles.js';
+import { requirePermission } from '../../middleware/roles.js';
 
 const router = Router();
 
 // Todas las rutas de configuración de ganancias son exclusivas para el Administrador
 router.use(authenticate);
-router.use(authorize(['admin']));
+router.use(requirePermission('margins'));
 
 // Margen General Predeterminado
 router.get('/', SettingsController.getSettings);

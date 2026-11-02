@@ -424,6 +424,18 @@ function ensureSqliteStylistDeletedColumn(raw: DatabaseSync): void {
   }
 }
 
+function ensureSqliteUserPermissionsColumn(raw: DatabaseSync): void {
+  try {
+    const cols = raw.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>;
+    if (cols.length > 0 && !cols.some((c) => c.name === 'permissions')) {
+      raw.exec('ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT NULL');
+      console.log('Columna users.permissions agregada (SQLite).');
+    }
+  } catch (error) {
+    console.error('No se pudo agregar la columna users.permissions:', error);
+  }
+}
+
 export const initDatabase = (): AnyDatabase => {
   if (dbInstance) return dbInstance;
 
@@ -490,6 +502,7 @@ export const initDatabase = (): AnyDatabase => {
   }
 
   ensureSqliteStylistDeletedColumn(raw);
+  ensureSqliteUserPermissionsColumn(raw);
   seedDefaultUsers(raw);
 
   sqliteRaw = raw;
@@ -577,6 +590,29 @@ export const verifyDatabase = async (): Promise<void> => {
       } catch (error) {
         console.warn(
           'No se pudo agregar stylists.deleted_at automáticamente. Ejecutá el SQL de sql/agregar_deleted_at_stylists.sql en phpMyAdmin.',
+          error,
+        );
+      }
+
+      // Columna con los permisos de cada usuario (JSON). Se agrega sola si falta.
+      try {
+        const [permCols] = await conn.query(
+          `SELECT COLUMN_NAME
+           FROM information_schema.columns
+           WHERE table_schema = DATABASE()
+           AND TABLE_NAME = 'users'
+           AND COLUMN_NAME = 'permissions'`,
+        );
+
+        if ((permCols as unknown[]).length === 0) {
+          await conn.query(
+            'ALTER TABLE users ADD COLUMN permissions LONGTEXT NULL DEFAULT NULL AFTER is_active',
+          );
+          console.log('Columna users.permissions agregada (MySQL).');
+        }
+      } catch (error) {
+        console.warn(
+          'No se pudo agregar users.permissions automáticamente. Ejecutá sql/agregar_permisos_usuarios.sql en phpMyAdmin.',
           error,
         );
       }

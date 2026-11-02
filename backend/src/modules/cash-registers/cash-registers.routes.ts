@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { CashRegistersController } from './cash-registers.controller.js';
 import { authenticate } from '../../middleware/auth.js';
+import { requirePermission } from '../../middleware/roles.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.get('/current', CashRegistersController.getCurrent);
+// El POS necesita saber si hay caja abierta; el resto es exclusivo del permiso «register»
+router.get('/current', requirePermission('register', 'pos'), CashRegistersController.getCurrent);
+router.use(requirePermission('register'));
 router.post('/open', CashRegistersController.open);
 router.post('/:id/close', CashRegistersController.close);
 router.get('/:id/movements', CashRegistersController.listMovements);

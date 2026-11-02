@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { SalesController } from './sales.controller.js';
 import { authenticate } from '../../middleware/auth.js';
+import { requirePermission } from '../../middleware/roles.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.get('/', SalesController.list);
-router.get('/:id', SalesController.getById);
-router.post('/', SalesController.create);
-router.delete('/:id', SalesController.cancel);
-router.post('/:id/cancel', SalesController.cancel);
+router.get('/', requirePermission('sales'), SalesController.list);
+router.get('/:id', requirePermission('sales', 'pos'), SalesController.getById);
+router.post('/', requirePermission('pos'), SalesController.create);
+router.delete('/:id', requirePermission('sales'), SalesController.cancel);
+router.post('/:id/cancel', requirePermission('sales'), SalesController.cancel);
 
 export default router;

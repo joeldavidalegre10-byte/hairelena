@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { usersService, CreateUserData } from '../../services/users.service';
 import { User } from '../../types';
+import { PermissionKey, ALL_PERMISSION_KEYS, ROLE_DEFAULT_PERMISSIONS, PERMISSIONS, permissionsOf } from '../../config/permissions';
+import { PermissionsPicker } from '../users/PermissionsPicker';
 import {
   Settings,
   Users,
@@ -11,12 +13,14 @@ import {
   KeyRound,
   AlertCircle,
   Search,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 
 export const SystemSettingsView: React.FC = () => {
-  const { user: currentUser, notify } = useApp();
+  const { user: currentUser, notify, refreshUser } = useApp();
 
   // Estado de lista de usuarios
   const [users, setUsers] = useState<User[]>([]);
@@ -30,9 +34,27 @@ export const SystemSettingsView: React.FC = () => {
     password: '',
     role: 'admin',
     full_name: '',
+    permissions: [...ROLE_DEFAULT_PERMISSIONS.admin],
   });
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string>('');
+
+  // Modal para Editar Usuario (datos, rol y permisos)
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState<{
+    username: string;
+    full_name: string;
+    role: 'admin' | 'cashier';
+    permissions: PermissionKey[];
+  }>({ username: '', full_name: '', role: 'admin', permissions: [] });
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string>('');
+
+  // Modal para Eliminar Usuario
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deletePassword, setDeletePassword] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string>('');
 
   // Modal para Cambiar Contraseña de Usuario
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
@@ -63,6 +85,7 @@ export const SystemSettingsView: React.FC = () => {
       password: '',
       role: 'admin',
       full_name: '',
+      permissions: [...ROLE_DEFAULT_PERMISSIONS.admin],
     });
     setCreateError('');
     setIsCreateModalOpen(true);
@@ -83,6 +106,11 @@ export const SystemSettingsView: React.FC = () => {
       return;
     }
 
+    if (!createForm.permissions || createForm.permissions.length === 0) {
+      setCreateError('Selecciona al menos un permiso para el usuario');
+      return;
+    }
+
     try {
       setIsCreating(true);
       await usersService.create({
@@ -90,6 +118,7 @@ export const SystemSettingsView: React.FC = () => {
         password: createForm.password.trim(),
         role: createForm.role,
         full_name: createForm.full_name?.trim() || cleanUsername,
+        permissions: createForm.permissions,
       });
 
       notify(`Usuario «${cleanUsername}» creado exitosamente con rol ${createForm.role === 'admin' ? 'Administrador' : 'Cajero'}`, 'success');
@@ -99,6 +128,90 @@ export const SystemSettingsView: React.FC = () => {
       setCreateError(err.message || 'Error al crear el usuario');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleOpenEditModal = (targetUser: User) => {
+    setEditingUser(targetUser);
+    setEditForm({
+      username: targetUser.username || targetUser.email.split('@')[0],
+      full_name: targetUser.full_name,
+      role: targetUser.role === 'cashier' ? 'cashier' : 'admin',
+      permissions: [...permissionsOf(targetUser)],
+    });
+    setEditError('');
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditError('');
+
+    const cleanUsername = editForm.username.trim();
+    const cleanName = editForm.full_name.trim();
+    if (!cleanUsername) {
+      setEditError('El nombre de usuario no puede estar vacío');
+      return;
+    }
+    if (!cleanName) {
+      setEditError('El nombre completo no puede estar vacío');
+      return;
+    }
+    if (editForm.permissions.length === 0) {
+      setEditError('Selecciona al menos un permiso para el usuario');
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      await usersService.update(editingUser.id, {
+        username: cleanUsername,
+        full_name: cleanName,
+        role: editForm.role,
+        permissions: editForm.permissions,
+      });
+
+      // Si se editó la cuenta en uso, se refresca para que el menú refleje los cambios al instante
+      if (editingUser.id === currentUser?.id) {
+        await refreshUser();
+      }
+
+      notify(`Usuario «${cleanUsername}» actualizado correctamente`, 'success');
+      setEditingUser(null);
+      await loadUsers();
+    } catch (err: any) {
+      setEditError(err.message || 'Error al guardar los cambios');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleOpenDeleteModal = (targetUser: User) => {
+    setUserToDelete(targetUser);
+    setDeletePassword('');
+    setDeleteError('');
+  };
+
+  const handleConfirmDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToDelete) return;
+
+    if (!deletePassword.trim()) {
+      setDeleteError('Ingresa la contraseña de un administrador para confirmar');
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      await usersService.remove(userToDelete.id, deletePassword);
+      notify(`Usuario «${userToDelete.username || userToDelete.full_name}» eliminado`, 'success');
+      setUserToDelete(null);
+      await loadUsers();
+    } catch (err: any) {
+      setDeleteError(err.message || 'No se pudo eliminar el usuario');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -163,7 +276,7 @@ export const SystemSettingsView: React.FC = () => {
           Configuración del Sistema
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Administración de usuarios y administradores
+          Administración de usuarios, roles y permisos de acceso
         </p>
       </div>
 
@@ -211,6 +324,7 @@ export const SystemSettingsView: React.FC = () => {
                     <th className="py-3 px-4">Usuario</th>
                     <th className="py-3 px-4">Nombre Completo</th>
                     <th className="py-3 px-4">Rol en el Sistema</th>
+                    <th className="py-3 px-4">Permisos</th>
                     <th className="py-3 px-4">Estado</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
@@ -218,13 +332,13 @@ export const SystemSettingsView: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-[#1a1b20]">
                   {loadingUsers ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
                         Cargando usuarios...
                       </td>
                     </tr>
                   ) : filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
                         No se encontraron usuarios registrados.
                       </td>
                     </tr>
@@ -279,6 +393,21 @@ export const SystemSettingsView: React.FC = () => {
                           </td>
 
                           <td className="py-3.5 px-4">
+                            {(() => {
+                              const granted = permissionsOf(u);
+                              const names = PERMISSIONS.filter((p) => granted.includes(p.key)).map((p) => p.label);
+                              return (
+                                <span
+                                  className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 cursor-help"
+                                  title={names.length ? names.join(' · ') : 'Sin acceso a ningún módulo'}
+                                >
+                                  {granted.length} de {ALL_PERMISSION_KEYS.length} módulos
+                                </span>
+                              );
+                            })()}
+                          </td>
+
+                          <td className="py-3.5 px-4">
                             {u.is_active ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -294,6 +423,16 @@ export const SystemSettingsView: React.FC = () => {
 
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(u)}
+                                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#1f2128] hover:border-[#5b63f6] dark:hover:border-[#5b63f6] text-slate-600 dark:text-slate-300 text-[11px] font-medium transition cursor-pointer flex items-center gap-1"
+                                title="Editar datos, rol y permisos"
+                              >
+                                <Pencil className="w-3 h-3 text-[#5b63f6]" />
+                                <span>Editar</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => handleOpenPasswordModal(u)}
@@ -317,6 +456,17 @@ export const SystemSettingsView: React.FC = () => {
                                   {u.is_active ? 'Desactivar' : 'Activar'}
                                 </button>
                               )}
+
+                              {!isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDeleteModal(u)}
+                                  className="px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                                  title="Eliminar usuario"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -338,8 +488,8 @@ export const SystemSettingsView: React.FC = () => {
           isOpen={true}
           onClose={() => setIsCreateModalOpen(false)}
           title="Crear Nuevo Administrador o Usuario"
-          subtitle="Define el nombre de usuario, contraseña y rol de acceso para el nuevo personal"
-          maxWidth="md"
+          subtitle="Define el nombre de usuario, contraseña, rol y los permisos que tendrá en el sistema"
+          maxWidth="lg"
         >
           <form onSubmit={handleCreateUser} className="space-y-4">
             {createError && (
@@ -357,7 +507,7 @@ export const SystemSettingsView: React.FC = () => {
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setCreateForm({ ...createForm, role: 'admin' })}
+                  onClick={() => setCreateForm({ ...createForm, role: 'admin', permissions: [...ROLE_DEFAULT_PERMISSIONS.admin] })}
                   className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                     createForm.role === 'admin'
                       ? 'border-[#5b63f6] bg-indigo-50/60 dark:bg-[#1a1b2e] ring-1 ring-[#5b63f6]/40'
@@ -369,13 +519,13 @@ export const SystemSettingsView: React.FC = () => {
                     <span>Administrador</span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Acceso total a ventas, caja, márgenes, configuraciones y usuarios
+                    Trae todos los permisos marcados por defecto
                   </p>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setCreateForm({ ...createForm, role: 'cashier' })}
+                  onClick={() => setCreateForm({ ...createForm, role: 'cashier', permissions: [...ROLE_DEFAULT_PERMISSIONS.cashier] })}
                   className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                     createForm.role === 'cashier'
                       ? 'border-[#5b63f6] bg-indigo-50/60 dark:bg-[#1a1b2e] ring-1 ring-[#5b63f6]/40'
@@ -387,7 +537,7 @@ export const SystemSettingsView: React.FC = () => {
                     <span>Cajero</span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Acceso al Punto de Venta, cobros de tickets y apertura/cierre de caja
+                    Trae Punto de Venta, tickets y caja por defecto
                   </p>
                 </button>
               </div>
@@ -441,6 +591,16 @@ export const SystemSettingsView: React.FC = () => {
               />
             </div>
 
+            {/* Permisos del sistema */}
+            <PermissionsPicker
+              value={createForm.permissions || []}
+              role={createForm.role}
+              onChange={(next) => setCreateForm({ ...createForm, permissions: next })}
+            />
+            <p className="text-[10px] text-slate-400 -mt-2">
+              El rol solo propone los permisos iniciales: puedes marcar o quitar los que quieras y cambiarlos después con «Editar».
+            </p>
+
             {/* Botones de acción */}
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#1f2128]">
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
@@ -448,6 +608,155 @@ export const SystemSettingsView: React.FC = () => {
               </Button>
               <Button type="submit" isLoading={isCreating} className="bg-[#5b63f6] hover:bg-[#4f55e3] text-white">
                 Crear Usuario
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL PARA EDITAR USUARIO (DATOS, ROL Y PERMISOS)                          */}
+      {/* ========================================================================= */}
+      {editingUser && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingUser(null)}
+          title={`Editar usuario: ${editingUser.username || editingUser.full_name}`}
+          subtitle="Modifica sus datos, su rol y los módulos a los que puede acceder"
+          maxWidth="lg"
+        >
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            {editError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Nombre de Usuario <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.username}
+                  onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-[#1f2128] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#5b63f6]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Nombre Completo <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-[#1f2128] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#5b63f6]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Rol</label>
+              <div className="grid grid-cols-2 gap-2.5">
+                {(['admin', 'cashier'] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, role: r })}
+                    className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      editForm.role === r
+                        ? 'border-[#5b63f6] bg-indigo-50/60 dark:bg-[#1a1b2e] ring-1 ring-[#5b63f6]/40'
+                        : 'border-slate-200 dark:border-[#1f2128] bg-white dark:bg-[#121318] hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
+                      {r === 'admin' ? (
+                        <Shield className="w-4 h-4 text-[#5b63f6]" />
+                      ) : (
+                        <UserCheck className="w-4 h-4 text-emerald-500" />
+                      )}
+                      <span>{r === 'admin' ? 'Administrador' : 'Cajero'}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Cambiar el rol no modifica los permisos marcados abajo. Los cajeros no ven comisiones ni importes de caja.
+              </p>
+            </div>
+
+            <PermissionsPicker
+              value={editForm.permissions}
+              role={editForm.role}
+              lockedKeys={editingUser.id === currentUser?.id ? ['settings'] : []}
+              onChange={(next) => setEditForm({ ...editForm, permissions: next })}
+            />
+            <p className="text-[10px] text-slate-400 -mt-2">
+              Los cambios se aplican de inmediato en el servidor. Si la persona tiene el sistema abierto, verá el menú actualizado al recargar la página.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#1f2128]">
+              <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" isLoading={isSavingEdit} className="bg-[#5b63f6] hover:bg-[#4f55e3] text-white">
+                Guardar Cambios
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL PARA ELIMINAR USUARIO                                                */}
+      {/* ========================================================================= */}
+      {userToDelete && (
+        <Modal
+          isOpen={true}
+          onClose={() => setUserToDelete(null)}
+          title={`Eliminar usuario: ${userToDelete.username || userToDelete.full_name}`}
+          subtitle="Esta acción no se puede deshacer"
+          maxWidth="sm"
+        >
+          <form onSubmit={handleConfirmDelete} className="space-y-4">
+            {deleteError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              La cuenta dejará de existir y no podrá volver a ingresar. Sus ventas y movimientos de caja se conservan, pero
+              ya no mostrarán su nombre como cajero. Si solo quieres impedir que ingrese, usa <b>Desactivar</b>.
+            </p>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Contraseña de administrador
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                placeholder="••••••••"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#161720] border border-slate-200 dark:border-[#1f2128] rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#5b63f6]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#1f2128]">
+              <Button type="button" variant="outline" onClick={() => setUserToDelete(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="danger" isLoading={isDeleting}>
+                Eliminar Usuario
               </Button>
             </div>
           </form>

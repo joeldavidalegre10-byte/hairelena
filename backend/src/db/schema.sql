@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'cashier' CHECK (role IN ('admin', 'cashier', 'stylist')),
     phone TEXT,
     is_active INTEGER NOT NULL DEFAULT 1,
+    permissions TEXT DEFAULT NULL,
     deleted_at TEXT DEFAULT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))

@@ -3,6 +3,7 @@ import { User, CashRegister, CartItem, ServiceItem, ProductItem, SystemTheme, Vi
 import { authService } from '../services/auth.service';
 import { cashRegisterService } from '../services/cash-register.service';
 import { getToken } from '../services/api';
+import { PermissionKey, userCan, firstAllowedTab } from '../config/permissions';
 
 export type ActiveTab = 'pos' | 'sales' | 'inventory' | 'stylists' | 'register' | 'margins' | 'settings' | 'reports';
 export type { SystemTheme, VisualStyle, ThemeMode };
@@ -29,6 +30,8 @@ export interface AppContextType {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   setUser: (user: User | null) => void;
+  hasPermission: (key: PermissionKey) => boolean;
+  refreshUser: () => Promise<void>;
   loginUser: (username: string, password?: string) => Promise<void>;
   logout: () => void;
 
@@ -164,7 +167,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const profile = await authService.getCurrentUser();
         if (profile) {
           setUser(profile);
-          setActiveTab('pos');
+          setActiveTab(firstAllowedTab(profile) ?? 'pos');
           refreshRegister();
         } else {
           setUser(null);
@@ -185,9 +188,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginUser = async (username: string, password?: string) => {
     const data = await authService.login(username, password);
     setUser(data.user);
-    setActiveTab('pos');
+    setActiveTab(firstAllowedTab(data.user) ?? 'pos');
     refreshRegister();
   };
+
+  const hasPermission = (key: PermissionKey) => userCan(user, key);
+
+  // Vuelve a pedir el perfil al servidor (por ejemplo, tras cambiar los permisos de la cuenta en uso)
+  const refreshUser = async () => {
+    try {
+      const profile = await authService.getCurrentUser();
+      if (profile) setUser(profile);
+    } catch {
+      /* si falla, se mantiene la sesión actual */
+    }
+  };
+
+  // Si la pestaña activa deja de estar permitida, se pasa a la primera que sí lo esté
+  useEffect(() => {
+    if (user && !userCan(user, activeTab)) {
+      setActiveTab(firstAllowedTab(user) ?? 'pos');
+    }
+  }, [user, activeTab]);
 
   const logout = () => {
     authService.logout();
@@ -292,6 +314,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTab,
         setActiveTab,
         setUser,
+        hasPermission,
+        refreshUser,
         loginUser,
         logout,
         currentRegister,

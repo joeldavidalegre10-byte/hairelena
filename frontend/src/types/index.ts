@@ -1,3 +1,6 @@
+import type { PermissionKey } from '../config/permissions';
+
+export type { PermissionKey };
 export type UserRole = 'admin' | 'cashier' | 'stylist';
 export type SystemTheme = 'elite-pos';
 export type VisualStyle = 'actual' | 'modern' | 'compact';
@@ -11,6 +14,7 @@ export interface User {
   role: UserRole;
   phone?: string;
   is_active: boolean;
+  permissions?: PermissionKey[];
   created_at?: string;
 }
 
