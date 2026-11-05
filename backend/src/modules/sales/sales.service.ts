@@ -3,13 +3,9 @@ import { getDb, transaction } from '../../db/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { UtilitiesService } from '../utilities/utilities.service.js';
-import { isConsumidorFinal } from '../customers/customers.util.js';
 
 export interface CreateSaleInput {
   register_id?: string;
-  /** Cliente registrado (tabla customers). Es la forma correcta de asociar un cliente. */
-  customer_id?: string | null;
-  /** Solo compatibilidad: texto libre sin vincular a un cliente. */
   customer_name?: string;
   customer_phone?: string;
   payment_method: 'cash' | 'card' | 'transfer' | 'mixed';
@@ -48,7 +44,6 @@ const ITEM_NUMERIC_FIELDS = [
   'commission_amount',
   'profit_margin_percent',
   'profit_amount',
-  'cost_amount',
   'utility_amount',
 ];
 
@@ -246,26 +241,6 @@ export class SalesService {
         }
       }
 
-      // 2c. Cliente: si viene customer_id, el servidor toma nombre y teléfono del registro
-      // (el texto que mande el navegador no se usa). Sin cliente = Consumidor Final.
-      let customerId: string | null = null;
-      let customerName = 'Consumidor Final';
-      let customerPhone: string | null = null;
-      if (input.customer_id) {
-        const cust = (await db
-          .prepare('SELECT id, full_name, phone, is_active FROM customers WHERE id = ?')
-          .get(input.customer_id)) as { id: string; full_name: string; phone: string | null; is_active: number } | undefined;
-        if (!cust || !Number(cust.is_active)) {
-          throw new AppError('El cliente seleccionado no existe o está inactivo', 400);
-        }
-        customerId = cust.id;
-        customerName = cust.full_name;
-        customerPhone = cust.phone ?? null;
-      } else if (input.customer_name && input.customer_name.trim() && !isConsumidorFinal(input.customer_name)) {
-        customerName = input.customer_name.trim();
-        customerPhone = input.customer_phone || null;
-      }
-
       const saleId = `sale-${crypto.randomUUID().slice(0, 8)}`;
       const now = new Date().toISOString();
       // Ticket: fecha (hora de Paraguay) + 6 hex aleatorios. El esquema anterior usaba
@@ -276,18 +251,17 @@ export class SalesService {
       // 3. Insertar venta principal
       await db.prepare(`
         INSERT INTO sales (
-          id, invoice_number, register_id, cashier_id, customer_id, customer_name, customer_phone,
+          id, invoice_number, register_id, cashier_id, customer_name, customer_phone,
           subtotal, discount, tax, total, payment_method, payment_details, status, notes, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)
       `).run(
         saleId,
         invoiceNumber,
         registerId,
         cashierId,
-        customerId,
-        customerName,
-        customerPhone,
+        input.customer_name || 'Consumidor Final',
+        input.customer_phone || null,
         subtotal,
         discount,
         tax,
@@ -302,9 +276,9 @@ export class SalesService {
       const insertItem = db.prepare(`
         INSERT INTO sale_items (
           id, sale_id, item_type, item_id, item_name, quantity, unit_price,
-          subtotal, stylist_id, commission_rate, commission_amount, profit_margin_percent, profit_amount, cost_amount
+          subtotal, stylist_id, commission_rate, commission_amount, profit_margin_percent, profit_amount
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const insertCommission = db.prepare(`
@@ -333,13 +307,9 @@ export class SalesService {
         let commAmount = 0;
         let profitMarginPercent = 0;
         let profitAmount = 0;
-        // Costo de insumos/mercadería de esta línea, guardado al momento de la venta
-        // para que cambiar el costo después no altere reportes históricos.
-        let costAmount = 0;
 
         if (item.item_type === 'service') {
-          const srv = (await db.prepare('SELECT custom_margin_active, cost FROM services WHERE id = ?').get(item.item_id)) as { custom_margin_active: number; cost: number | string | null } | undefined;
-          costAmount = Number(srv?.cost || 0) * item.quantity;
+          const srv = (await db.prepare('SELECT custom_margin_active FROM services WHERE id = ?').get(item.item_id)) as { custom_margin_active: number } | undefined;
           const isCustomActive = Boolean(Number(srv?.custom_margin_active));
 
           let appliedProfitMargin = defaultProfitMargin;
@@ -371,7 +341,6 @@ export class SalesService {
           // Producto retail
           const prd = (await db.prepare('SELECT cost_price FROM products WHERE id = ?').get(item.item_id)) as { cost_price: number } | undefined;
           const cost = prd ? Number(prd.cost_price) * item.quantity : 0;
-          costAmount = cost;
           profitAmount = Math.max(0, itemSubtotal - cost);
           profitMarginPercent = itemSubtotal > 0 ? Number(((profitAmount / itemSubtotal) * 100).toFixed(2)) : 0;
         }
@@ -389,8 +358,7 @@ export class SalesService {
           commRate,
           commAmount,
           profitMarginPercent,
-          profitAmount,
-          costAmount
+          profitAmount
         );
 
         // Descontar inventario si es producto
@@ -449,7 +417,6 @@ export class SalesService {
           commission_amount: commAmount,
           profit_margin_percent: profitMarginPercent,
           profit_amount: profitAmount,
-          cost_amount: costAmount,
         });
       }
 
@@ -468,9 +435,8 @@ export class SalesService {
         invoice_number: invoiceNumber,
         register_id: registerId,
         cashier_id: cashierId,
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_phone: customerPhone,
+        customer_name: input.customer_name || 'Consumidor Final',
+        customer_phone: input.customer_phone,
         subtotal,
         discount,
         tax,

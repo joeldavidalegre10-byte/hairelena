@@ -10,7 +10,6 @@ import reportsRoutes from './modules/reports/reports.routes.js';
 import systemRoutes from './modules/system/system.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
 import utilitiesRoutes from './modules/utilities/utilities.routes.js';
-import customersRoutes from './modules/customers/customers.routes.js';
 import { getDb } from './db/database.js';
 const router = Router();
 // Health check endpoint (público): informa el motor real y comprueba la conexión.
@@ -49,5 +48,4 @@ router.use('/reports', reportsRoutes);
 router.use('/system', systemRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/utilities', utilitiesRoutes);
-router.use('/customers', customersRoutes);
 export default router;

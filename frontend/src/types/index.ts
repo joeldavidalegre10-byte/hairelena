@@ -53,8 +53,6 @@ export interface ServiceItem {
   duration_minutes: number;
   price: number;
   cost?: number;
-  /** El dueño confirmó que el costo es correcto (incluido 0). Solo lo ve quien administra. */
-  cost_confirmed?: boolean;
   profit_margin_percent?: number | null;
   is_active: boolean;
   variants?: ServiceVariant[];
@@ -119,7 +117,6 @@ export interface Sale {
   register_id?: string;
   cashier_id?: string;
   cashier_name?: string;
-  customer_id?: string | null;
   customer_name: string;
   customer_phone?: string;
   subtotal: number;
@@ -405,12 +402,3 @@ export interface StylistPayoutRecord {
 
 
 
-
-
-export interface Customer {
-  id: string;
-  full_name: string;
-  phone: string | null;
-  notes?: string | null;
-  is_active: boolean;
-}

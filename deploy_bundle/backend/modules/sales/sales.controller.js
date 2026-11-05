@@ -10,7 +10,7 @@ export class SalesController {
                     ...sale,
                     items: Array.isArray(sale.items)
                         ? sale.items.map((item) => {
-                            const { commission_rate, commission_amount, profit_margin_percent, profit_amount, cost_amount, ...rest } = item;
+                            const { commission_rate, commission_amount, profit_margin_percent, profit_amount, ...rest } = item;
                             return rest;
                         })
                         : [],
@@ -33,7 +33,7 @@ export class SalesController {
                     ...data,
                     items: Array.isArray(data.items)
                         ? data.items.map((item) => {
-                            const { commission_rate, commission_amount, profit_margin_percent, profit_amount, cost_amount, ...rest } = item;
+                            const { commission_rate, commission_amount, profit_margin_percent, profit_amount, ...rest } = item;
                             return rest;
                         })
                         : [],

@@ -29,8 +29,6 @@ export const InventoryView: React.FC = () => {
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number>(0);
-  const [newServiceCost, setNewServiceCost] = useState<number>(0);
-  const [newServiceNoCost, setNewServiceNoCost] = useState<boolean>(false);
 
   // Opciones de precio para servicios (ej. Niño, Joven, Adulto)
   const [hasMultiplePrices, setHasMultiplePrices] = useState(false);
@@ -103,8 +101,6 @@ export const InventoryView: React.FC = () => {
     setEditingService(null);
     setNewServiceName('');
     setNewServicePrice(0);
-    setNewServiceCost(0);
-    setNewServiceNoCost(false);
     setHasMultiplePrices(false);
     setServiceVariantsList(DEFAULT_VARIANTS.map((v) => ({ ...v })));
   };
@@ -119,8 +115,6 @@ export const InventoryView: React.FC = () => {
     setEditingService(srv);
     setNewServiceName(srv.name);
     setNewServicePrice(Number(srv.price) || 0);
-    setNewServiceCost(Number(srv.cost) || 0);
-    setNewServiceNoCost(Boolean(srv.cost_confirmed) && !(Number(srv.cost) > 0));
     if (variants.length > 0) {
       setHasMultiplePrices(true);
       setServiceVariantsList(variants.map((v) => ({ id: v.id, name: v.name, price: Number(v.price) || 0 })));
@@ -151,25 +145,9 @@ export const InventoryView: React.FC = () => {
     setServiceVariantsList(serviceVariantsList.filter((_, i) => i !== index));
   };
 
-  // El cajero no recibe el costo desde la API: en ese caso no se muestra ni se envía.
-  const costVisible = services.length > 0 && services.some((s) => typeof s.cost === 'number');
-  const servicesWithoutCost = costVisible
-    ? services.filter((s) => (Number(s.cost) || 0) === 0 && !s.cost_confirmed)
-    : [];
-  const canEditCost = editingService ? typeof editingService.cost === 'number' : true;
-
   const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newServiceName.trim()) return;
-
-    if (canEditCost && newServiceCost < 0) {
-      notify('El costo no puede ser negativo.', 'error');
-      return;
-    }
-    if (canEditCost && Number(newServiceCost) === 0 && !newServiceNoCost) {
-      notify('Indicá el costo de insumos o marcá "Este servicio no usa insumos (costo 0)".', 'error');
-      return;
-    }
 
     try {
       let validVariants: VariantRow[] = [];
@@ -193,7 +171,6 @@ export const InventoryView: React.FC = () => {
         await inventoryService.updateService(editingService.id, {
           name: newServiceName.trim(),
           price: basePrice,
-          ...(canEditCost ? { cost: Number(newServiceCost) || 0, cost_confirmed: true } : {}),
           // Con precio único se envía lista vacía para desactivar las opciones anteriores
           variants: hasMultiplePrices ? validVariants : [],
         });
@@ -202,8 +179,6 @@ export const InventoryView: React.FC = () => {
         await inventoryService.createService({
           name: newServiceName.trim(),
           price: basePrice,
-          cost: Number(newServiceCost) || 0,
-          cost_confirmed: true,
           variants: validVariants.length > 0 ? validVariants.map(({ name, price }) => ({ name, price })) : undefined,
         });
         notify('Servicio agregado exitosamente', 'success');
@@ -582,14 +557,6 @@ export const InventoryView: React.FC = () => {
       </div>
 
       <div className="flex-1 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-sm">
-        {tab === 'services' && servicesWithoutCost.length > 0 && (
-          <div className="mx-4 mt-4 p-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
-            <strong>{servicesWithoutCost.length} {servicesWithoutCost.length === 1 ? 'servicio tiene' : 'servicios tienen'} el costo sin definir:</strong>{' '}
-            {servicesWithoutCost.map((s) => s.name).join(', ')}. Mientras no se defina, los reportes de ganancia real
-            pueden mostrar más ganancia de la que realmente queda. Si un servicio no usa insumos, abrilo y marcalo como "sin insumos".
-          </div>
-        )}
-
         <div className="overflow-x-auto flex-1">
           {tab === 'services' ? (
             <table className="w-full text-left text-xs">
@@ -598,7 +565,6 @@ export const InventoryView: React.FC = () => {
                   <th className="py-3.5 px-4">Nombre del Servicio</th>
                   <th className="py-3.5 px-4">Modalidad</th>
                   <th className="py-3.5 px-4">Precios de Venta</th>
-                  {costVisible && <th className="py-3.5 px-4">Costo insumos</th>}
                   <th className="py-3.5 px-4">Estado</th>
                   <th className="py-3.5 px-4 text-right">Acciones</th>
                 </tr>
@@ -606,7 +572,7 @@ export const InventoryView: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-800 dark:text-slate-200">
                 {services.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
+                    <td colSpan={5} className="py-8 text-center text-slate-400">
                       No hay servicios registrados.
                     </td>
                   </tr>
@@ -646,24 +612,6 @@ export const InventoryView: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      {costVisible && (
-                        <td className="py-3.5 px-4">
-                          {(Number(srv.cost) || 0) > 0 ? (
-                            <span className="text-slate-700 dark:text-slate-300">{formatCurrency(Number(srv.cost))}</span>
-                          ) : srv.cost_confirmed ? (
-                            <span className="text-slate-500 dark:text-slate-400">Sin insumos</span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openEditService(srv)}
-                              className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 text-[10px] font-semibold cursor-pointer"
-                              title="Definir el costo de este servicio"
-                            >
-                              Sin definir
-                            </button>
-                          )}
-                        </td>
-                      )}
                       <td className="py-3.5 px-4">
                         <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 text-[10px]">
                           Activo
@@ -824,37 +772,6 @@ export const InventoryView: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {canEditCost && (
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-                  <label className="text-slate-700 dark:text-slate-300 block font-semibold">
-                    Costo de insumos por servicio (₲)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Ej. 20000 (tinte, decolorante, esmalte...)"
-                    value={newServiceCost || ''}
-                    disabled={newServiceNoCost}
-                    onChange={(e) => setNewServiceCost(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                  />
-                  <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newServiceNoCost}
-                      onChange={(e) => {
-                        setNewServiceNoCost(e.target.checked);
-                        if (e.target.checked) setNewServiceCost(0);
-                      }}
-                    />
-                    Este servicio no usa insumos (costo 0)
-                  </label>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Se descuenta de la ganancia del salón en los reportes. Cambiarlo no modifica ventas ya registradas.
-                  </p>
                 </div>
               )}
             </div>
