@@ -20,6 +20,19 @@ export type UserRole = 'admin' | 'cashier' | 'stylist';
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   admin: [...PERMISSION_KEYS],
+  // Permisos iniciales al CREAR un cajero: solo cobrar y ver el historial de tickets.
+  // El Control de Caja se le agrega a mano si hace falta (el administrador también
+  // puede habilitarle la caja desde su propio panel).
+  cashier: ['pos', 'sales'],
+  stylist: [],
+};
+
+/**
+ * Usuarios anteriores a los permisos personalizados (columna `permissions` vacía):
+ * conservan lo que tenían, para que nadie pierda acceso al actualizar.
+ */
+const LEGACY_ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
+  admin: [...PERMISSION_KEYS],
   cashier: ['pos', 'sales', 'register'],
   stylist: [],
 };
@@ -53,5 +66,5 @@ export function parseStoredPermissions(raw: unknown): PermissionKey[] | null {
 export function resolvePermissions(role: string, raw: unknown): PermissionKey[] {
   const stored = parseStoredPermissions(raw);
   if (stored) return stored;
-  return [...(ROLE_DEFAULT_PERMISSIONS[role as UserRole] ?? [])];
+  return [...(LEGACY_ROLE_PERMISSIONS[role as UserRole] ?? [])];
 }

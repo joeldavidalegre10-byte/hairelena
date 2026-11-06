@@ -34,7 +34,7 @@ export const ALL_PERMISSION_KEYS: PermissionKey[] = PERMISSIONS.map((p) => p.key
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<string, PermissionKey[]> = {
   admin: [...ALL_PERMISSION_KEYS],
-  cashier: ['pos', 'sales', 'register'],
+  cashier: ['pos', 'sales'],
   stylist: [],
 };
 

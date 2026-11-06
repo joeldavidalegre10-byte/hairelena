@@ -537,7 +537,7 @@ export const SystemSettingsView: React.FC = () => {
                     <span>Cajero</span>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Trae Punto de Venta, tickets y caja por defecto
+                    Trae Punto de Venta e historial de tickets por defecto
                   </p>
                 </button>
               </div>
@@ -602,7 +602,7 @@ export const SystemSettingsView: React.FC = () => {
             </p>
 
             {/* Botones de acción */}
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#1f2128]">
+            <div className="sticky bottom-0 flex justify-end gap-2 pt-3 pb-1 border-t border-slate-200 dark:border-[#1f2128] bg-white dark:bg-slate-900">
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancelar
               </Button>
@@ -700,7 +700,7 @@ export const SystemSettingsView: React.FC = () => {
               Los cambios se aplican de inmediato en el servidor. Si la persona tiene el sistema abierto, verá el menú actualizado al recargar la página.
             </p>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#1f2128]">
+            <div className="sticky bottom-0 flex justify-end gap-2 pt-3 pb-1 border-t border-slate-200 dark:border-[#1f2128] bg-white dark:bg-slate-900">
               <Button type="button" variant="outline" onClick={() => setEditingUser(null)}>
                 Cancelar
               </Button>

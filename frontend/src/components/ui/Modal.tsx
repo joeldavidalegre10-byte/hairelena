@@ -30,9 +30,9 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
       <div
-        className={`app-modal bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full ${maxWidthClass} p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100`}
+        className={`app-modal bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full ${maxWidthClass} p-6 shadow-2xl relative flex flex-col max-h-[calc(100vh-2rem)] animate-in fade-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100`}
       >
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
+        <div className="shrink-0 flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">{title}</h3>
             {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
@@ -45,7 +45,8 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
 
-        <div>{children}</div>
+        {/* El contenido se desplaza dentro del modal: los botones del final siempre se alcanzan */}
+        <div className="min-h-0 flex-1 overflow-y-auto -mr-2 pr-2">{children}</div>
       </div>
     </div>
   );
