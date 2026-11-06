@@ -12,24 +12,36 @@ const affected = (r) => {
     const n = r?.changes ?? r?.affectedRows;
     return n === undefined || n === null ? null : Number(n);
 };
+// La cantidad y el precio unitario se leen de la línea de venta original (si todavía existe).
 const PAYOUT_ITEM_COLUMNS = `
-  id, payout_id, commission_id, sale_item_id, service_name, customer_name,
-  service_price, amount_paid, profit_margin_percent, commission_rate, service_date, created_at
+  spi.id, spi.payout_id, spi.commission_id, spi.sale_item_id, spi.service_name, spi.customer_name,
+  spi.service_price, spi.amount_paid, spi.profit_margin_percent, spi.commission_rate, spi.service_date,
+  spi.created_at, si.quantity AS quantity, si.unit_price AS unit_price
 `;
-const mapPayoutItem = (it) => ({
-    id: it.id,
-    payout_id: it.payout_id,
-    commission_id: it.commission_id,
-    sale_item_id: it.sale_item_id,
-    service_name: it.service_name,
-    customer_name: it.customer_name,
-    service_price: num(it.service_price),
-    amount_paid: num(it.amount_paid),
-    profit_margin_percent: numOrNull(it.profit_margin_percent),
-    commission_rate: numOrNull(it.commission_rate),
-    service_date: it.service_date,
-    created_at: it.created_at,
-});
+const PAYOUT_ITEMS_FROM = `
+  stylist_payout_items spi
+  LEFT JOIN sale_items si ON spi.sale_item_id = si.id
+`;
+const mapPayoutItem = (it) => {
+    const quantity = Math.max(1, num(it.quantity));
+    const servicePrice = num(it.service_price);
+    return {
+        id: it.id,
+        payout_id: it.payout_id,
+        commission_id: it.commission_id,
+        sale_item_id: it.sale_item_id,
+        service_name: it.service_name,
+        customer_name: it.customer_name,
+        quantity,
+        unit_price: it.unit_price !== null && it.unit_price !== undefined ? num(it.unit_price) : servicePrice / quantity,
+        service_price: servicePrice,
+        amount_paid: num(it.amount_paid),
+        profit_margin_percent: numOrNull(it.profit_margin_percent),
+        commission_rate: numOrNull(it.commission_rate),
+        service_date: it.service_date,
+        created_at: it.created_at,
+    };
+};
 const UTILITY_ITEM_COLUMNS = `
   id, payout_id, utility_id, service_name, customer_name, main_stylist_name,
   invoice_number, service_date, amount_paid, created_at
@@ -50,19 +62,22 @@ const mapPayout = (p, items, utilityItems = []) => {
     const utilities = utilityItems.map(mapUtilityItem);
     const utilitiesTotal = utilities.reduce((sum, u) => sum + u.amount_paid, 0);
     const totalAmount = num(p.total_amount);
+    const serviceItems = items.map(mapPayoutItem);
+    // Servicios realizados (3 tintes = 3). Si el pago no tiene detalle, se usa lo guardado.
+    const servicesDone = serviceItems.reduce((sum, it) => sum + it.quantity, 0);
     return {
         id: p.id,
         stylist_id: p.stylist_id,
         stylist_name: p.stylist_name,
         total_amount: totalAmount,
-        services_count: num(p.services_count),
+        services_count: serviceItems.length > 0 ? servicesDone : num(p.services_count),
         commissions_total: Math.max(0, totalAmount - utilitiesTotal),
         utilities_total: utilitiesTotal,
         utilities_count: utilities.length,
         status: p.status,
         notes: p.notes,
         created_at: p.created_at,
-        services: items.map(mapPayoutItem),
+        services: serviceItems,
         utilities,
     };
 };
@@ -83,6 +98,8 @@ export class CommissionsService {
         si.id as sale_item_id,
         si.item_name as service_name,
         (si.unit_price * si.quantity) as service_price,
+        si.quantity as quantity,
+        si.unit_price as unit_price,
         si.profit_margin_percent,
         si.commission_rate,
         COALESCE(s.customer_name, 'Consumidor Final') as customer_name,
@@ -124,7 +141,8 @@ export class CommissionsService {
         };
         for (const r of rows) {
             const entry = ensureEntry(r);
-            entry.pending_services_count += 1;
+            // Cuenta servicios realizados (3 tintes en una línea = 3), no líneas de venta.
+            entry.pending_services_count += Math.max(1, num(r.quantity));
             entry.total_pending_commissions += num(r.amount_to_pay);
             entry.total_pending_amount += num(r.amount_to_pay);
             entry.services.push({
@@ -134,6 +152,8 @@ export class CommissionsService {
                 service_name: r.service_name,
                 customer_name: r.customer_name,
                 service_date: r.service_date,
+                quantity: Math.max(1, num(r.quantity)),
+                unit_price: num(r.unit_price),
                 service_price: num(r.service_price),
                 amount_to_pay: num(r.amount_to_pay),
                 profit_margin_percent: numOrNull(r.profit_margin_percent),
@@ -207,6 +227,8 @@ export class CommissionsService {
           si.id as sale_item_id,
           si.item_name,
           (si.unit_price * si.quantity) as service_price,
+          si.quantity as quantity,
+          si.unit_price as unit_price,
           si.profit_margin_percent,
           si.commission_rate,
           COALESCE(s.customer_name, 'Consumidor Final') as customer_name,
@@ -272,6 +294,8 @@ export class CommissionsService {
                     sale_item_id: p.sale_item_id,
                     service_name: p.item_name,
                     customer_name: p.customer_name,
+                    quantity: Math.max(1, num(p.quantity)),
+                    unit_price: num(p.unit_price),
                     service_price: itemPrice,
                     amount_paid: itemAmount,
                     profit_margin_percent: profitMargin,
@@ -342,7 +366,7 @@ export class CommissionsService {
                 stylist_id: stylistId,
                 stylist_name: stylist?.full_name || 'Estilista',
                 total_amount: totalAmount,
-                services_count: pending.length,
+                services_count: payoutItems.reduce((sum, it) => sum + it.quantity, 0),
                 commissions_total: commissionsTotal,
                 utilities_total: utilitiesTotal,
                 utilities_count: payoutUtilities.length,
@@ -394,9 +418,9 @@ export class CommissionsService {
             const placeholders = chunk.map(() => '?').join(',');
             const rows = (await db.prepare(`
         SELECT ${PAYOUT_ITEM_COLUMNS}
-        FROM stylist_payout_items
-        WHERE payout_id IN (${placeholders})
-        ORDER BY service_date ASC
+        FROM ${PAYOUT_ITEMS_FROM}
+        WHERE spi.payout_id IN (${placeholders})
+        ORDER BY spi.service_date ASC
       `).all(...chunk));
             for (const row of rows) {
                 const bucket = itemsByPayout.get(row.payout_id);
@@ -447,9 +471,9 @@ export class CommissionsService {
             return null;
         const items = (await db.prepare(`
       SELECT ${PAYOUT_ITEM_COLUMNS}
-      FROM stylist_payout_items
-      WHERE payout_id = ?
-      ORDER BY service_date ASC
+      FROM ${PAYOUT_ITEMS_FROM}
+      WHERE spi.payout_id = ?
+      ORDER BY spi.service_date ASC
     `).all(p.id));
         const utilityItems = (await db.prepare(`
       SELECT ${UTILITY_ITEM_COLUMNS}

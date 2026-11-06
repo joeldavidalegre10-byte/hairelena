@@ -21,6 +21,8 @@ import {
   CreditCard,
   Banknote,
   ArrowRightLeft,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -28,6 +30,8 @@ export const ReportsView: React.FC = () => {
   const { user, notify, hasPermission } = useApp();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  // Estilista cuyo detalle de servicios está desplegado en el ranking
+  const [expandedStylist, setExpandedStylist] = useState<string | null>(null);
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year' | 'all'>('day');
 
   useEffect(() => {
@@ -240,10 +244,14 @@ export const ReportsView: React.FC = () => {
               ) : (
                 metrics.stylistPerformances.map((perf, index) => {
                   const isTop = index === 0 && perf.total_service_revenue > 0;
+                  const isOpen = expandedStylist === perf.stylist_id;
+                  const detail = perf.services || [];
                   return (
+                    <React.Fragment key={perf.stylist_id}>
                     <tr
-                      key={perf.stylist_id}
-                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition ${
+                      onClick={() => setExpandedStylist(isOpen ? null : perf.stylist_id)}
+                      title="Ver el detalle de servicios de este estilista"
+                      className={`cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition ${
                         isTop ? 'bg-amber-50/20 dark:bg-amber-950/10' : ''
                       }`}
                     >
@@ -259,6 +267,11 @@ export const ReportsView: React.FC = () => {
                         }`}>
                           {index + 1}
                         </span>
+                        {isOpen ? (
+                          <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        )}
                         <span>{perf.stylist_name}</span>
                         {isTop && (
                           <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
@@ -290,6 +303,51 @@ export const ReportsView: React.FC = () => {
                         )}
                       </td>
                     </tr>
+                    {isOpen && (
+                      <tr className="bg-slate-50/70 dark:bg-slate-950/40">
+                        <td colSpan={6} className="px-4 py-3">
+                          {detail.length === 0 ? (
+                            <p className="text-xs text-slate-400">Sin servicios en este período ({periodLabel}).</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs">
+                                <thead className="text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">
+                                  <tr>
+                                    <th className="py-1.5 pr-4">Servicio</th>
+                                    <th className="py-1.5 pr-4">Cantidad</th>
+                                    <th className="py-1.5 pr-4">Precio unitario</th>
+                                    <th className="py-1.5 pr-4">Total facturado</th>
+                                    <th className="py-1.5 pr-4">Comisión</th>
+                                    <th className="py-1.5">Ganancia salón</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
+                                  {detail.map((d) => (
+                                    <tr key={`${d.service_name}-${d.unit_price}`}>
+                                      <td className="py-1.5 pr-4 font-semibold text-slate-900 dark:text-slate-100">{d.service_name}</td>
+                                      <td className="py-1.5 pr-4 font-bold text-indigo-600 dark:text-indigo-400">× {d.quantity}</td>
+                                      <td className="py-1.5 pr-4 font-mono text-slate-600 dark:text-slate-300">{formatCurrency(d.unit_price)}</td>
+                                      <td className="py-1.5 pr-4 font-mono font-bold text-slate-900 dark:text-white">{formatCurrency(d.total_amount)}</td>
+                                      <td className="py-1.5 pr-4 font-mono text-amber-600 dark:text-amber-400">{formatCurrency(d.total_commission)}</td>
+                                      <td className="py-1.5 font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(d.total_profit)}</td>
+                                    </tr>
+                                  ))}
+                                  <tr className="font-extrabold">
+                                    <td className="py-2 pr-4 text-slate-900 dark:text-white">Total</td>
+                                    <td className="py-2 pr-4 text-indigo-600 dark:text-indigo-400">× {perf.services_count}</td>
+                                    <td className="py-2 pr-4" />
+                                    <td className="py-2 pr-4 font-mono text-slate-900 dark:text-white">{formatCurrency(perf.total_service_revenue)}</td>
+                                    <td className="py-2 pr-4 font-mono text-amber-600 dark:text-amber-400">{formatCurrency(perf.total_commissions)}</td>
+                                    <td className="py-2 font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(perf.total_profit)}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })
               )}

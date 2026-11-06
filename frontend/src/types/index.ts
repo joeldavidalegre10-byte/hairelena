@@ -185,9 +185,20 @@ export interface Commission {
   created_at: string;
 }
 
+/** Un servicio de un estilista en el reporte: una sola fila con cantidad, precio unitario y total. */
+export interface StylistServiceBreakdown {
+  service_name: string;
+  unit_price: number;
+  quantity: number;
+  total_amount: number;
+  total_commission: number;
+  total_profit: number;
+}
+
 export interface StylistPerformance {
   stylist_id: string;
   stylist_name: string;
+  services?: StylistServiceBreakdown[];
   services_count: number;
   total_service_revenue: number;
   total_commissions: number;
@@ -262,6 +273,9 @@ export interface PendingServiceItem {
   service_name: string;
   customer_name: string;
   service_date: string;
+  /** Cantidad de servicios de esta línea (ej. 3 cortes). */
+  quantity?: number;
+  unit_price?: number;
   service_price: number;
   amount_to_pay: number;
   profit_margin_percent: number | null;
@@ -376,6 +390,8 @@ export interface PayoutServiceItem {
   sale_item_id: string | null;
   service_name: string;
   customer_name: string;
+  quantity?: number;
+  unit_price?: number;
   service_price: number;
   amount_paid: number;
   profit_margin_percent: number | null;

@@ -52,7 +52,7 @@ export class ReportsService {
       SELECT
         st.id as stylist_id,
         st.full_name as stylist_name,
-        COUNT(si.id) as services_count,
+        COALESCE(SUM(si.quantity), 0) as services_count,
         COALESCE(SUM(si.subtotal), 0) as total_service_revenue,
         COALESCE(SUM(si.commission_amount), 0) as total_commissions,
         COALESCE(SUM(si.profit_amount), 0) as total_profit
@@ -65,8 +65,42 @@ export class ReportsService {
       GROUP BY st.id, st.full_name
       ORDER BY total_service_revenue DESC, services_count DESC
     `).all());
+        // Detalle del trabajo de cada estilista: cada servicio una sola vez, con cantidad,
+        // precio unitario y total (3 cortes a 50.000 = "× 3", 50.000 c/u, 150.000).
+        const serviceDetailRows = (await db.prepare(`
+      SELECT
+        si.stylist_id as stylist_id,
+        si.item_name as service_name,
+        si.unit_price as unit_price,
+        SUM(si.quantity) as quantity,
+        SUM(si.subtotal) as total_amount,
+        SUM(si.commission_amount) as total_commission,
+        SUM(si.profit_amount) as total_profit
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' ${salesDateCondition}
+      WHERE si.item_type = 'service' AND si.stylist_id IS NOT NULL
+      GROUP BY si.stylist_id, si.item_name, si.unit_price
+      ORDER BY total_amount DESC, quantity DESC
+    `).all());
+        const servicesByStylist = new Map();
+        for (const d of serviceDetailRows) {
+            const entry = {
+                service_name: d.service_name,
+                unit_price: num(d.unit_price),
+                quantity: num(d.quantity),
+                total_amount: num(d.total_amount),
+                total_commission: num(d.total_commission),
+                total_profit: num(d.total_profit),
+            };
+            const list = servicesByStylist.get(d.stylist_id);
+            if (list)
+                list.push(entry);
+            else
+                servicesByStylist.set(d.stylist_id, [entry]);
+        }
         const stylistPerformances = stylistRows.map((r) => ({
             ...r,
+            services: servicesByStylist.get(r.stylist_id) || [],
             services_count: num(r.services_count),
             total_service_revenue: num(r.total_service_revenue),
             total_commissions: num(r.total_commissions),

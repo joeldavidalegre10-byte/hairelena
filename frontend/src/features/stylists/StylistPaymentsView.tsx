@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { groupServices } from './groupServices';
+import { ServiceGroupCard } from './ServiceGroupCard';
 
 export const StylistPaymentsView: React.FC = () => {
   const { notify } = useApp();
@@ -519,73 +521,18 @@ export const StylistPaymentsView: React.FC = () => {
                       <div className="border-t border-slate-100 dark:border-slate-800/80 p-4 bg-slate-50/50 dark:bg-slate-950/40 animate-in fade-in duration-150 space-y-3">
                         <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-1">
                           <span>Servicios pendientes a liquidar</span>
-                          <span>{st.services.length} registros</span>
+                          <span>{st.pending_services_count} {st.pending_services_count === 1 ? 'servicio' : 'servicios'}</span>
                         </div>
 
-                        {/* LISTADO DE SERVICIOS */}
+                        {/* LISTADO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
                         <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {st.services.map((srv) => (
-                            <div
-                              key={srv.commission_id}
-                              className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs"
-                            >
-                              <div className="space-y-1 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-xs text-slate-900 dark:text-white">
-                                    {srv.service_name}
-                                  </span>
-                                  {srv.invoice_number && (
-                                    <span className="text-[10px] font-mono text-slate-400">
-                                      #{srv.invoice_number}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                                  <span className="flex items-center gap-1">
-                                    <User className="w-3 h-3 text-slate-400" />
-                                    {srv.customer_name}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3 text-slate-400" />
-                                    {formatDate(srv.service_date)}
-                                  </span>
-                                  {srv.commission_rate !== null && (
-                                    <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                                      Comisión: {srv.commission_rate}%
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* IMPORTES: COBRADO VS A PAGAR & ACCIÓN DE ELIMINAR */}
-                              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
-                                <div className="text-left sm:text-right">
-                                  <span className="text-[10px] text-slate-400 block">Cobrado al cliente</span>
-                                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 font-mono">
-                                    {formatCurrency(srv.service_price)}
-                                  </span>
-                                </div>
-                                <div className="h-6 w-px bg-slate-200 dark:border-slate-800 hidden sm:block" />
-                                <div className="flex items-center gap-2">
-                                  <div className="text-right">
-                                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block">
-                                      A pagar
-                                    </span>
-                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 font-mono">
-                                      {formatCurrency(srv.amount_to_pay)}
-                                    </span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenDeleteOneModal(st, srv)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition cursor-pointer ml-1"
-                                    title="Excluir este servicio de la liquidación del profesional"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+                          {groupServices(st.services, (srv) => srv.amount_to_pay).map((group) => (
+                            <ServiceGroupCard
+                              key={group.key}
+                              group={group}
+                              variant="pending"
+                              onDeleteOne={(srv) => handleOpenDeleteOneModal(st, srv)}
+                            />
                           ))}
                         </div>
 
@@ -871,56 +818,13 @@ export const StylistPaymentsView: React.FC = () => {
                           <span>
                             {isCancelled ? 'Servicios de este pago (revertidos a pendientes)' : 'Servicios abonados en esta operación'}
                           </span>
-                          <span>{p.services.length} registros históricos</span>
+                          <span>{p.services_count} {p.services_count === 1 ? 'servicio' : 'servicios'}</span>
                         </div>
 
-                        {/* LISTADO HISTÓRICO DE SERVICIOS */}
+                        {/* LISTADO HISTÓRICO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
                         <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {p.services.map((srv) => (
-                            <div
-                              key={srv.id}
-                              className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs"
-                            >
-                              <div className="space-y-1 flex-1">
-                                <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                                  {srv.service_name}
-                                </span>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                                  <span className="flex items-center gap-1">
-                                    <User className="w-3 h-3 text-slate-400" />
-                                    {srv.customer_name || 'Consumidor Final'}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3 text-slate-400" />
-                                    {formatDate(srv.service_date)}
-                                  </span>
-                                  {srv.commission_rate !== null && (
-                                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                      Comisión: {srv.commission_rate}%
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* IMPORTES HISTÓRICOS */}
-                              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
-                                <div className="text-left sm:text-right">
-                                  <span className="text-[10px] text-slate-400 block">Cobrado al cliente</span>
-                                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 font-mono">
-                                    {formatCurrency(srv.service_price)}
-                                  </span>
-                                </div>
-                                <div className="h-6 w-px bg-slate-200 dark:border-slate-800 hidden sm:block" />
-                                <div className="text-right">
-                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">
-                                    Importe abonado
-                                  </span>
-                                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
-                                    {formatCurrency(srv.amount_paid)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+                          {groupServices(p.services, (srv) => srv.amount_paid).map((group) => (
+                            <ServiceGroupCard key={group.key} group={group} variant="paid" />
                           ))}
                         </div>
 
