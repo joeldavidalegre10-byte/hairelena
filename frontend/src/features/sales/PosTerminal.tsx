@@ -25,7 +25,6 @@ import {
   UserCheck,
   User,
   X,
-  Lock,
   Unlock,
   Tag,
   ChevronRight,
@@ -265,9 +264,11 @@ export const PosTerminal: React.FC = () => {
   };
 
   const isRegisterOpen = currentRegister?.status === 'open';
+  // El administrador puede cobrar aunque no haya abierto caja; el cajero necesita su turno abierto.
+  const canCharge = isRegisterOpen || user?.role === 'admin';
 
   const handleOpenCheckout = () => {
-    if (!isRegisterOpen) {
+    if (!canCharge) {
       notify('La caja registradora se encuentra cerrada. No es posible cobrar.', 'error');
       return;
     }
@@ -347,7 +348,7 @@ export const PosTerminal: React.FC = () => {
 
   const canConfirmSale = () => {
     if (isSubmitting) return false;
-    if (!isRegisterOpen) return false;
+    if (!canCharge) return false;
     if (paymentMethod === 'cash') return cashNumeric >= cartTotal;
     if (paymentMethod === 'mixed') return mixedCashNumeric > 0 && mixedCashNumeric < cartTotal;
     return true; // Tarjeta y transferencia
@@ -416,19 +417,6 @@ export const PosTerminal: React.FC = () => {
               Registrar una nueva venta
             </p>
           </div>
-
-          {/* Badge de Estado de Caja */}
-          {isRegisterOpen ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              CAJA ABIERTA
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 shadow-xs">
-              <Lock className="w-3.5 h-3.5" />
-              CAJA CERRADA
-            </span>
-          )}
         </div>
 
         {/* Buscador de ancho completo con botón Escanear [F2] de referencia */}
@@ -449,7 +437,7 @@ export const PosTerminal: React.FC = () => {
         </div>
 
         {/* ALERTA VISUAL SI LA CAJA ESTÁ CERRADA */}
-        {!isRegisterOpen && (
+        {!canCharge && (
           <div className="mb-4 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center justify-between text-xs text-rose-700 dark:text-rose-300">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
@@ -478,20 +466,6 @@ export const PosTerminal: React.FC = () => {
               </span>
             </button>
             <button
-              onClick={() => setActiveCatalogTab('articles')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
-                activeCatalogTab === 'articles'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              <span>Artículos (Café & Dulces)</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCatalogTab === 'articles' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-[#1a1b22] text-slate-400'}`}>
-                {filteredArticles.length}
-              </span>
-            </button>
-            <button
               onClick={() => setActiveCatalogTab('products')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
                 activeCatalogTab === 'products'
@@ -503,6 +477,20 @@ export const PosTerminal: React.FC = () => {
               <span>Productos Salón</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCatalogTab === 'products' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-[#1a1b22] text-slate-400'}`}>
                 {filteredSalonProducts.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveCatalogTab('articles')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ${
+                activeCatalogTab === 'articles'
+                  ? 'bg-[#5b63f6] text-white shadow-xs'
+                  : 'bg-white dark:bg-[#121318] border border-slate-200 dark:border-[#1f2128] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Coffee className="w-3.5 h-3.5" />
+              <span>Artículos (Café & Dulces)</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeCatalogTab === 'articles' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-[#1a1b22] text-slate-400'}`}>
+                {filteredArticles.length}
               </span>
             </button>
             <button
@@ -596,72 +584,6 @@ export const PosTerminal: React.FC = () => {
             </div>
           )}
 
-          {/* ARTÍCULOS (CAFETERÍA & SNACKS) */}
-          {(activeCatalogTab === 'all' || activeCatalogTab === 'articles') && filteredArticles.length > 0 && (
-            <div>
-              {activeCatalogTab === 'all' && (
-                <div className="flex items-center gap-2 mb-3">
-                  <Coffee className="w-4 h-4 text-amber-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Artículos & Cafetería ({filteredArticles.length})
-                  </h3>
-                </div>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                {filteredArticles.map((art, idx) => (
-                  <button
-                    key={art.id}
-                    onClick={() => handleProductClick(art)}
-                    disabled={art.stock <= 0}
-                    className={`pos-interactive-card group relative flex flex-col justify-between p-3.5 rounded-xl border text-left transition-all ${
-                      art.stock <= 0
-                        ? 'bg-slate-100 dark:bg-[#0d0e12] border-slate-200 dark:border-[#1a1b20] opacity-40 cursor-not-allowed pointer-events-none'
-                        : 'bg-white dark:bg-[#121318] border-slate-200 dark:border-[#1f2128] hover:border-amber-400 dark:hover:border-amber-500/50 cursor-pointer shadow-xs'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-1 mb-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600 transition-all shadow-2xs">
-                          <Coffee className="w-4 h-4" />
-                        </div>
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
-                            art.stock <= art.min_stock
-                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/40'
-                              : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600'
-                          }`}
-                        >
-                          Stock: {art.stock}
-                        </span>
-                      </div>
-
-                      <span className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-1 block my-2">
-                        {art.name}
-                      </span>
-                    </div>
-
-                    <div className="pt-2.5 border-t border-slate-100 dark:border-[#1f2128] flex items-center justify-between gap-1">
-                      <div>
-                        <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                          {formatCurrency(art.sale_price)}
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-                          {art.sku || `ART${String(idx + 1).padStart(3, '0')}`}
-                        </span>
-                      </div>
-                      {art.stock > 0 && (
-                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600 transition-all flex items-center gap-1 shadow-2xs">
-                          <span>Agregar</span>
-                          <Plus className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* PRODUCTOS DE SALÓN */}
           {(activeCatalogTab === 'all' || activeCatalogTab === 'products') && filteredSalonProducts.length > 0 && (
             <div>
@@ -716,6 +638,72 @@ export const PosTerminal: React.FC = () => {
                         </span>
                       </div>
                       {prd.stock > 0 && (
+                        <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148] group-hover:bg-[#5b63f6] group-hover:text-white group-hover:border-[#5b63f6] transition-all flex items-center gap-1 shadow-2xs">
+                          <span>Agregar</span>
+                          <Plus className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ARTÍCULOS (CAFETERÍA & SNACKS) */}
+          {(activeCatalogTab === 'all' || activeCatalogTab === 'articles') && filteredArticles.length > 0 && (
+            <div>
+              {activeCatalogTab === 'all' && (
+                <div className="flex items-center gap-2 mb-3">
+                  <Coffee className="w-4 h-4 text-indigo-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Artículos & Cafetería ({filteredArticles.length})
+                  </h3>
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredArticles.map((art, idx) => (
+                  <button
+                    key={art.id}
+                    onClick={() => handleProductClick(art)}
+                    disabled={art.stock <= 0}
+                    className={`pos-interactive-card group relative flex flex-col justify-between p-3.5 rounded-xl border text-left transition-all ${
+                      art.stock <= 0
+                        ? 'bg-slate-100 dark:bg-[#0d0e12] border-slate-200 dark:border-[#1a1b20] opacity-40 cursor-not-allowed pointer-events-none'
+                        : 'bg-white dark:bg-[#121318] border-slate-200 dark:border-[#1f2128] cursor-pointer shadow-xs'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-1 mb-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-[#1a1b2e] border border-indigo-200 dark:border-[#2d3148] flex items-center justify-center text-[#5b63f6] dark:text-[#818cf8] group-hover:bg-[#5b63f6] group-hover:text-white group-hover:border-[#5b63f6] transition-all shadow-2xs">
+                          <Coffee className="w-4 h-4" />
+                        </div>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
+                            art.stock <= art.min_stock
+                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/40'
+                              : 'bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border-indigo-200 dark:border-[#2d3148] group-hover:bg-[#5b63f6] group-hover:text-white group-hover:border-[#5b63f6]'
+                          }`}
+                        >
+                          Stock: {art.stock}
+                        </span>
+                      </div>
+
+                      <span className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#5b63f6] dark:group-hover:text-[#818cf8] transition-colors line-clamp-1 block my-2">
+                        {art.name}
+                      </span>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-slate-100 dark:border-[#1f2128] flex items-center justify-between gap-1">
+                      <div>
+                        <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono group-hover:text-[#5b63f6] dark:group-hover:text-[#818cf8] transition-colors">
+                          {formatCurrency(art.sale_price)}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                          {art.sku || `ART${String(idx + 1).padStart(3, '0')}`}
+                        </span>
+                      </div>
+                      {art.stock > 0 && (
                         <span className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-[#1a1b2e] text-[#5b63f6] dark:text-[#818cf8] border border-indigo-200 dark:border-[#2d3148] group-hover:bg-[#5b63f6] group-hover:text-white group-hover:border-[#5b63f6] transition-all flex items-center gap-1 shadow-2xs">
                           <span>Agregar</span>
                           <Plus className="w-3.5 h-3.5" />
@@ -963,16 +951,16 @@ export const PosTerminal: React.FC = () => {
 
           <button
             onClick={handleOpenCheckout}
-            disabled={cart.length === 0 || !isRegisterOpen}
+            disabled={cart.length === 0 || !canCharge}
             className={`btn-checkout-pos w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition cursor-pointer ${
-              cart.length === 0 || !isRegisterOpen
+              cart.length === 0 || !canCharge
                 ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
                 : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/20 active:scale-[0.99]'
             }`}
           >
             <Banknote className="w-5 h-5" />
             <span>
-              {!isRegisterOpen ? 'Caja Cerrada (No se puede cobrar)' : `Cobrar ${formatCurrency(cartTotal)}`}
+              {!canCharge ? 'Caja Cerrada (No se puede cobrar)' : `Cobrar ${formatCurrency(cartTotal)}`}
             </span>
           </button>
         </div>

@@ -163,7 +163,7 @@ export class SalesService {
     };
   }
 
-  static async create(cashierId: string, rawInput: CreateSaleInput) {
+  static async create(cashierId: string, rawInput: CreateSaleInput, role?: string) {
     if (!rawInput.items || rawInput.items.length === 0) {
       throw new AppError('El ticket debe incluir al menos un producto o servicio', 400);
     }
@@ -217,10 +217,12 @@ export class SalesService {
 
       // 1. Verificar que el USUARIO tenga su propia caja abierta (obligatoria para registrar ventas)
       const activeReg = (await db.prepare("SELECT id, status FROM cash_registers WHERE status = 'open' AND opened_by = ? ORDER BY opened_at DESC LIMIT 1").get(cashierId)) as { id: string; status: string } | undefined;
-      if (!activeReg) {
+      // El administrador puede cobrar sin abrir caja: la venta queda sin turno asociado (register_id NULL).
+      // Los demás roles (cajero) siguen necesitando su caja abierta.
+      if (!activeReg && role !== 'admin') {
         throw new AppError('No es posible registrar ventas: no tienes una caja abierta. Abre tu turno de caja para operar.', 400);
       }
-      const registerId = activeReg.id;
+      const registerId: string | null = activeReg ? activeReg.id : null;
 
       // 2. Obtener configuración general de margen de ganancia
       const defaultProfitMargin = Number(await SettingsService.getDefaultProfitMargin());
@@ -422,7 +424,7 @@ export class SalesService {
 
       // 5. Si el pago fue en efectivo o mixto con efectivo, registrar en la caja
       const cashAmountToAdd = cashPortion(input.payment_method, input.payment_details, total);
-      if (cashAmountToAdd > 0) {
+      if (cashAmountToAdd > 0 && registerId) {
         await db.prepare(`
           UPDATE cash_registers
           SET expected_amount = expected_amount + ?

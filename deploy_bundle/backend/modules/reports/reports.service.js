@@ -190,6 +190,40 @@ export class ReportsService {
             total_profit: num(r.total_profit),
             stylists_count: num(r.stylists_count),
         }));
+        // 5c. Ventas por cajero (quién cobró cuánto en el período)
+        const cashierRows = (await db.prepare(`
+      SELECT
+        s.cashier_id as cashier_id,
+        COALESCE(u.full_name, 'Usuario eliminado') as cashier_name,
+        u.role as cashier_role,
+        COUNT(*) as sales_count,
+        COALESCE(SUM(s.total), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN s.payment_method = 'cash' THEN s.total ELSE 0 END), 0) as cash_total,
+        COALESCE(SUM(CASE WHEN s.payment_method = 'card' THEN s.total ELSE 0 END), 0) as card_total,
+        COALESCE(SUM(CASE WHEN s.payment_method = 'transfer' THEN s.total ELSE 0 END), 0) as transfer_total,
+        COALESCE(SUM(CASE WHEN s.payment_method = 'mixed' THEN s.total ELSE 0 END), 0) as mixed_total
+      FROM sales s
+      LEFT JOIN users u ON s.cashier_id = u.id
+      WHERE s.status = 'completed' ${salesDateCondition}
+      GROUP BY s.cashier_id, u.full_name, u.role
+      ORDER BY total_revenue DESC, sales_count DESC
+    `).all());
+        const cashierPerformances = cashierRows.map((r) => {
+            const salesCount = num(r.sales_count);
+            const totalRevenueCashier = num(r.total_revenue);
+            return {
+                cashier_id: r.cashier_id,
+                cashier_name: r.cashier_name,
+                cashier_role: r.cashier_role,
+                sales_count: salesCount,
+                total_revenue: totalRevenueCashier,
+                average_ticket: salesCount > 0 ? Math.round(totalRevenueCashier / salesCount) : 0,
+                cash_total: num(r.cash_total),
+                card_total: num(r.card_total),
+                transfer_total: num(r.transfer_total),
+                mixed_total: num(r.mixed_total),
+            };
+        });
         // 6. Desglose de ingresos por método de pago en el período
         const paymentRows = (await db.prepare(`
       SELECT
@@ -220,6 +254,7 @@ export class ReportsService {
             productPerformances,
             articlePerformances,
             servicePerformances,
+            cashierPerformances,
             paymentMethods,
         };
     }

@@ -242,7 +242,21 @@ export interface DashboardMetrics {
   productPerformances?: ProductPerformance[];
   articlePerformances?: ProductPerformance[];
   servicePerformances?: ServicePerformance[];
+  cashierPerformances?: CashierPerformance[];
   paymentMethods?: PaymentMethodSummary[];
+}
+
+export interface CashierPerformance {
+  cashier_id: string | null;
+  cashier_name: string;
+  cashier_role?: string | null;
+  sales_count: number;
+  total_revenue: number;
+  average_ticket: number;
+  cash_total: number;
+  card_total: number;
+  transfer_total: number;
+  mixed_total: number;
 }
 
 export interface ServicePerformance {

@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   RefreshCw,
   Scissors,
+  UserCheck,
   ChevronRight,
   X,
 } from 'lucide-react';
@@ -175,7 +176,7 @@ export const ReportsView: React.FC = () => {
                 >
                   <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     {opts.kind === 'article' ? (
-                      <Coffee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <Coffee className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     ) : (
                       <Package className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                     )}
@@ -615,7 +616,7 @@ export const ReportsView: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
           <div>
             <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-              <Coffee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <Coffee className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               Reporte de Artículos & Cafetería ({periodLabel})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -636,6 +637,89 @@ export const ReportsView: React.FC = () => {
           emptyText: 'No se registran artículos vendidos en este período',
           loadingText: 'Cargando ventas de artículos...',
         })}
+      </div>
+
+      {/* REPORTE 5: VENTAS POR CAJERO */}
+      <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-6 shadow-xs">
+        <div className="mb-4">
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            Reporte de Ventas por Cajero ({periodLabel})
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Cuántos tickets cobró cada usuario, cuánto vendió y con qué métodos de pago
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider text-[11px]">
+              <tr>
+                <th className="py-3 px-4">Cajero</th>
+                <th className="py-3 px-4">Tickets</th>
+                <th className="py-3 px-4">Total Vendido</th>
+                <th className="py-3 px-4">Ticket Promedio</th>
+                <th className="py-3 px-4">Efectivo</th>
+                <th className="py-3 px-4">Tarjeta</th>
+                <th className="py-3 px-4">Transferencia</th>
+                <th className="py-3 px-4 text-right">Mixto</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-800 dark:text-slate-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400">Calculando ventas por cajero...</td>
+                </tr>
+              ) : !metrics?.cashierPerformances || metrics.cashierPerformances.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                    No se registran ventas en este período ({periodLabel}).
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {metrics.cashierPerformances.map((c, index) => (
+                    <tr key={c.cashier_id || `sin-${index}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
+                        <span className="inline-flex items-center gap-2">
+                          {c.cashier_name}
+                          {c.cashier_role && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-medium">
+                              {c.cashier_role === 'admin' ? 'Administrador' : c.cashier_role === 'cashier' ? 'Cajero' : c.cashier_role}
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-indigo-600 dark:text-indigo-400">{c.sales_count}</td>
+                      <td className="py-3 px-4 font-black text-slate-900 dark:text-white font-mono">{formatCurrency(c.total_revenue)}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">{formatCurrency(c.average_ticket)}</td>
+                      <td className="py-3 px-4 font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(c.cash_total)}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">{formatCurrency(c.card_total)}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">{formatCurrency(c.transfer_total)}</td>
+                      <td className="py-3 px-4 text-right font-mono text-slate-600 dark:text-slate-300">{formatCurrency(c.mixed_total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-extrabold bg-slate-50/60 dark:bg-slate-950/30">
+                    <td className="py-3 px-4 text-slate-900 dark:text-white">Total</td>
+                    <td className="py-3 px-4 text-indigo-600 dark:text-indigo-400">
+                      {metrics.cashierPerformances.reduce((a, c) => a + c.sales_count, 0)}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-900 dark:text-white">
+                      {formatCurrency(metrics.cashierPerformances.reduce((a, c) => a + c.total_revenue, 0))}
+                    </td>
+                    <td className="py-3 px-4" />
+                    <td className="py-3 px-4 font-mono text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(metrics.cashierPerformances.reduce((a, c) => a + c.cash_total, 0))}
+                    </td>
+                    <td className="py-3 px-4 font-mono">{formatCurrency(metrics.cashierPerformances.reduce((a, c) => a + c.card_total, 0))}</td>
+                    <td className="py-3 px-4 font-mono">{formatCurrency(metrics.cashierPerformances.reduce((a, c) => a + c.transfer_total, 0))}</td>
+                    <td className="py-3 px-4 text-right font-mono">{formatCurrency(metrics.cashierPerformances.reduce((a, c) => a + c.mixed_total, 0))}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* SECCIÓN ALERTA DE STOCK CRÍTICO */}

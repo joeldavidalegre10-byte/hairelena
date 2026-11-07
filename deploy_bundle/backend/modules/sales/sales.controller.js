@@ -50,7 +50,7 @@ export class SalesController {
     static async create(req, res, next) {
         try {
             const cashierId = req.user?.id || '22222222-2222-2222-2222-222222222202';
-            const data = await SalesService.create(cashierId, req.body);
+            const data = await SalesService.create(cashierId, req.body, req.user?.role);
             res.status(201).json({ success: true, message: 'Venta registrada con éxito', data });
         }
         catch (error) {

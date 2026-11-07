@@ -32,7 +32,7 @@ const allNavItems: NavItem[] = [
 ];
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, cart, logout, user, currentRegister, hasPermission } = useApp();
+  const { activeTab, setActiveTab, cart, logout, user, hasPermission } = useApp();
 
   const isCashier = user?.role === 'cashier';
   // Cada módulo se muestra solo si el usuario tiene el permiso del mismo nombre
@@ -82,30 +82,6 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
-        {/* Tarjeta de Caja (Referencia) */}
-        <div
-          onClick={() => hasPermission('register') && setActiveTab('register')}
-          className={`p-2.5 rounded-xl bg-slate-50 dark:bg-[#14151b] border border-slate-200 dark:border-[#1f2128] flex items-center justify-between transition-colors ${
-            hasPermission('register') ? 'cursor-pointer hover:border-emerald-500/40' : ''
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                currentRegister?.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-              }`}
-            />
-            <div>
-              <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                {currentRegister?.name || (currentRegister?.id ? `Caja #${currentRegister.id.slice(-3)}` : 'Caja #001')}
-              </p>
-              <p className="text-[10px] text-slate-400">
-                {currentRegister?.status === 'open' ? 'Turno abierto' : 'Turno cerrado'}
-              </p>
-            </div>
-          </div>
-        </div>
-
         <button
           onClick={logout}
           className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition cursor-pointer"

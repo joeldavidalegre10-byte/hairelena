@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { DollarSign, UserCheck, ShieldCheck, Sun, Moon, Scissors } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
+import { UserCheck, ShieldCheck, Sun, Moon, Scissors } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, currentRegister, setActiveTab, theme, toggleTheme } = useApp();
@@ -31,27 +30,24 @@ export const Navbar: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-2.5 sm:space-x-3.5">
-        {/* STATUS DE CAJA (VERDE DE REFERENCIA) */}
-        <button
-          onClick={() => setActiveTab('register')}
-          className="flex items-center space-x-2 px-3 py-1.5 rounded-full border border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 transition text-xs font-semibold cursor-pointer shadow-xs"
-        >
-          <div className="flex items-center space-x-1.5">
-            <span
-              className={`status-dot w-2 h-2 rounded-full animate-pulse ${
-                currentRegister?.status === 'open' ? 'bg-emerald-500' : 'bg-rose-500'
+        {/* ESTADO DE CAJA (único indicador): verde si está abierta, rojo si está cerrada */}
+        {(() => {
+          const isOpen = currentRegister?.status === 'open';
+          return (
+            <button
+              onClick={() => setActiveTab('register')}
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer shadow-xs transition ${
+                isOpen
+                  ? 'border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40'
+                  : 'border-rose-300/80 dark:border-rose-500/30 bg-rose-50/80 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 hover:bg-rose-100/70 dark:hover:bg-rose-900/40'
               }`}
-            />
-            <span>{currentRegister?.status === 'open' ? 'Caja abierta' : 'Caja cerrada'}</span>
-          </div>
-
-          {currentRegister?.status === 'open' && (
-            <div className="flex items-center pl-2 border-l border-emerald-300/60 dark:border-emerald-600/40 text-xs font-bold text-emerald-800 dark:text-emerald-300 font-mono">
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>{formatCurrency(currentRegister.expected_amount)}</span>
-            </div>
-          )}
-        </button>
+              title={isOpen ? 'Caja abierta' : 'Caja cerrada'}
+            >
+              <span className={`status-dot w-2 h-2 rounded-full animate-pulse ${isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              <span>{isOpen ? 'Caja abierta' : 'Caja cerrada'}</span>
+            </button>
+          );
+        })()}
 
         {/* CONTROL DE MODO CLARO / MODO OSCURO (SOL / LUNA) */}
         <button
