@@ -230,6 +230,8 @@ export interface PaymentMethodSummary {
 
 export interface DashboardMetrics {
   period?: string;
+  from?: string | null;
+  to?: string | null;
   totalRevenue: number;
   totalSalesCount: number;
   averageTicket: number;
@@ -238,7 +240,18 @@ export interface DashboardMetrics {
   lowStockProducts: ProductItem[];
   stylistPerformances?: StylistPerformance[];
   productPerformances?: ProductPerformance[];
+  articlePerformances?: ProductPerformance[];
+  servicePerformances?: ServicePerformance[];
   paymentMethods?: PaymentMethodSummary[];
+}
+
+export interface ServicePerformance {
+  service_name: string;
+  times_performed: number;
+  total_revenue: number;
+  total_commission: number;
+  total_profit: number;
+  stylists_count: number;
 }
 
 export interface StylistMarginStatus {

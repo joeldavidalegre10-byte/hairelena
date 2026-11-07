@@ -7,8 +7,7 @@ import { useApp } from '../../context/AppContext';
 import {
   DollarSign,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Clock,
   Search,
   Banknote,
@@ -37,10 +36,10 @@ export const StylistPaymentsView: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Estados de tarjetas desplegadas por estilista en "Por pagar"
-  const [expandedPending, setExpandedPending] = useState<Record<string, boolean>>({});
+  const [detailPendingId, setDetailPendingId] = useState<string | null>(null);
 
   // Estados de tarjetas desplegadas por pago en "Pagados"
-  const [expandedPaid, setExpandedPaid] = useState<Record<string, boolean>>({});
+  const [detailPaidId, setDetailPaidId] = useState<string | null>(null);
 
   // Estado del estilista en proceso de pago para deshabilitar botón y prevenir doble clic
   const [payingStylistId, setPayingStylistId] = useState<string | null>(null);
@@ -100,26 +99,6 @@ export const StylistPaymentsView: React.FC = () => {
   };
 
   /**
-   * Alterna el despliegue de los servicios pendientes de un estilista en "Por pagar"
-   */
-  const handleTogglePending = (stylistId: string) => {
-    setExpandedPending((prev) => ({
-      ...prev,
-      [stylistId]: !prev[stylistId],
-    }));
-  };
-
-  /**
-   * Alterna el despliegue de los servicios incluidos en un pago histórico en "Pagados"
-   */
-  const handleTogglePaid = (payoutId: string) => {
-    setExpandedPaid((prev) => ({
-      ...prev,
-      [payoutId]: !prev[payoutId],
-    }));
-  };
-
-  /**
    * Ejecuta el pago al estilista ("Pagar ahora")
    */
   const handleExecutePayout = async (stylist: StylistPendingSummary, e: React.MouseEvent) => {
@@ -137,18 +116,9 @@ export const StylistPaymentsView: React.FC = () => {
         'success'
       );
 
-      // Cerrar la tarjeta en Por pagar
-      setExpandedPending((prev) => {
-        const next = { ...prev };
-        delete next[stylist.stylist_id];
-        return next;
-      });
-
-      // Abrir automáticamente el nuevo pago en la sección Pagados para confirmar
-      setExpandedPaid((prev) => ({
-        ...prev,
-        [result.id]: true,
-      }));
+      // Cerrar el modal de pendientes y abrir el detalle del nuevo pago para confirmarlo
+      setDetailPendingId(null);
+      setDetailPaidId(result.id);
 
       // Refresco silencioso preservando la posición exacta de desplazamiento
       await loadData(true);
@@ -183,12 +153,10 @@ export const StylistPaymentsView: React.FC = () => {
       setAdminPasswordRevert('');
       setRevertReason('');
       await loadData(true);
-      // Auto-desplegar al estilista en la columna "Por pagar" para mostrar inmediatamente los servicios restaurados
+      // Cerrar el detalle del pago y abrir el del estilista en "Por pagar" para ver los servicios restaurados
+      setDetailPaidId(null);
       if (targetStylistId) {
-        setExpandedPending((prev) => ({
-          ...prev,
-          [targetStylistId]: true,
-        }));
+        setDetailPendingId(targetStylistId);
       }
     } catch (err: any) {
       notify(err.message || 'Error al revertir el pago', 'error');
@@ -334,6 +302,250 @@ export const StylistPaymentsView: React.FC = () => {
   const completedPayouts = payouts.filter((p) => p.status === 'completed');
   const totalPaidGlobal = completedPayouts.reduce((sum, p) => sum + p.total_amount, 0);
 
+  // Detalle de un estilista con pendientes (se muestra dentro de un modal)
+  const detailPending = detailPendingId
+    ? pendingStylists.find((s) => s.stylist_id === detailPendingId) || null
+    : null;
+  const detailPaid = detailPaidId ? payouts.find((x) => x.id === detailPaidId) || null : null;
+
+  const renderPendingDetail = (st: StylistPendingSummary) => {
+    const isPaying = payingStylistId === st.stylist_id;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-1">
+                <span>Servicios pendientes a liquidar</span>
+                <span>{st.pending_services_count} {st.pending_services_count === 1 ? 'servicio' : 'servicios'}</span>
+              </div>
+      
+              {/* LISTADO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
+              <div className="space-y-2">
+                {groupServices(st.services, (srv) => srv.amount_to_pay).map((group) => (
+                  <ServiceGroupCard
+                    key={group.key}
+                    group={group}
+                    variant="pending"
+                    onDeleteOne={(srv) => handleOpenDeleteOneModal(st, srv)}
+                  />
+                ))}
+              </div>
+      
+              {/* UTILIDADES POR AYUDAR EN SERVICIOS (concepto adicional) */}
+              {st.utilities.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
+                    <span className="flex items-center gap-1.5">
+                      <HandCoins className="w-3.5 h-3.5" />
+                      Utilidades por estilista auxiliar
+                    </span>
+                    <span>{st.utilities.length} registros</span>
+                  </div>
+                  <div className="space-y-2">
+                    {st.utilities.map((u) => (
+                      <div
+                        key={u.utility_id}
+                        className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">{u.service_name}</span>
+                            {u.invoice_number && <span className="text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-slate-400" />
+                              {u.customer_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              {formatDate(u.service_date)}
+                            </span>
+                            {u.main_stylist_name && (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                Ayudó a {u.main_stylist_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad</span>
+                            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                              {formatCurrency(u.amount_to_pay)}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCancellingUtility({ stylistName: st.stylist_name, item: u });
+                              setCancelUtilityPassword('');
+                              setCancelUtilityReason('');
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition cursor-pointer ml-1"
+                            title="Excluir esta utilidad de la liquidación"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+      
+              {/* RESUMEN AL FINAL DE LA LISTA */}
+              <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+                  <div>
+                    <span>Comisiones / ganancias: </span>
+                    <strong className="text-slate-900 dark:text-white">
+                      {formatCurrency(st.total_pending_commissions)} ({st.pending_services_count} servicios)
+                    </strong>
+                  </div>
+                  {st.pending_utilities_count > 0 && (
+                    <div>
+                      <span>Utilidades adicionales: </span>
+                      <strong className="text-emerald-700 dark:text-emerald-400">
+                        {formatCurrency(st.total_pending_utilities)} ({st.pending_utilities_count})
+                      </strong>
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-slate-500 mr-2">Total a pagar al estilista:</span>
+                  <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 font-mono">
+                    {formatCurrency(st.total_pending_amount)}
+                  </span>
+                </div>
+              </div>
+      
+              {/* BOTONES DE ACCIÓN: "ELIMINAR TODOS LOS PENDIENTES" Y "PAGAR AHORA" */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenDeleteAllModal(st)}
+                  className="w-full sm:w-auto px-4 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900/60 transition cursor-pointer flex items-center justify-center gap-1.5"
+                  title="Eliminar todos los servicios pendientes de este estilista con autorización"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar todos los pendientes</span>
+                </button>
+      
+                <Button
+                  type="button"
+                  onClick={(e) => handleExecutePayout(st, e)}
+                  isLoading={isPaying}
+                  disabled={isPaying || Boolean(payingStylistId)}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition"
+                >
+                  <Banknote className="w-4 h-4" />
+                  Pagar ahora ({formatCurrency(st.total_pending_amount)})
+                </Button>
+              </div>
+      </div>
+    );
+  };
+
+  const renderPaidDetail = (p: StylistPayoutRecord) => {
+    const isCancelled = p.status === 'cancelled';
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-1">
+                <span>
+                  {isCancelled ? 'Servicios de este pago (revertidos a pendientes)' : 'Servicios abonados en esta operación'}
+                </span>
+                <span>{p.services_count} {p.services_count === 1 ? 'servicio' : 'servicios'}</span>
+              </div>
+      
+              {/* LISTADO HISTÓRICO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
+              <div className="space-y-2">
+                {groupServices(p.services, (srv) => srv.amount_paid).map((group) => (
+                  <ServiceGroupCard key={group.key} group={group} variant="paid" />
+                ))}
+              </div>
+      
+              {/* UTILIDADES INCLUIDAS EN EL PAGO (snapshot histórico) */}
+              {p.utilities.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
+                    <span className="flex items-center gap-1.5">
+                      <HandCoins className="w-3.5 h-3.5" />
+                      Utilidades por estilista auxiliar
+                    </span>
+                    <span>{p.utilities.length} registros históricos</span>
+                  </div>
+                  {p.utilities.map((u) => (
+                    <div
+                      key={u.id}
+                      className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-center justify-between gap-2"
+                    >
+                      <div className="space-y-0.5 flex-1">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                          {u.service_name}
+                          {u.invoice_number && <span className="ml-2 text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {u.customer_name || 'Consumidor Final'} · {formatDate(u.service_date || undefined)}
+                          {u.main_stylist_name && ` · Ayudó a ${u.main_stylist_name}`}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad abonada</span>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                          {formatCurrency(u.amount_paid)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+      
+              {/* RESUMEN AL FINAL DE LA LISTA */}
+              <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="text-slate-600 dark:text-slate-300 space-y-0.5">
+                  <div>
+                    <span>Comisiones / ganancias: </span>
+                    <strong className="text-slate-900 dark:text-white">
+                      {formatCurrency(p.commissions_total)} ({p.services_count} servicios)
+                    </strong>
+                  </div>
+                  {p.utilities_count > 0 && (
+                    <div>
+                      <span>Utilidades adicionales: </span>
+                      <strong className="text-emerald-700 dark:text-emerald-400">
+                        {formatCurrency(p.utilities_total)} ({p.utilities_count})
+                      </strong>
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-500 mr-2">Importe histórico total:</span>
+                  <span
+                    className={`text-base font-extrabold font-mono ${
+                      isCancelled ? 'text-slate-400 line-through' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    {formatCurrency(p.total_amount)}
+                  </span>
+                </div>
+              </div>
+      
+              {/* BOTÓN REVERTIR EN PIE DESPLEGABLE */}
+              {!isCancelled && (
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRevertModal(p)}
+                    className="px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Revertir pago</span>
+                  </button>
+                </div>
+              )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* TARJETA DE RESUMEN SUPERIOR */}
@@ -451,23 +663,17 @@ export const StylistPaymentsView: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {filteredPending.map((st) => {
-                const isExpanded = Boolean(expandedPending[st.stylist_id]);
-                const isPaying = payingStylistId === st.stylist_id;
 
                 return (
                   <div
                     key={st.stylist_id}
-                    className={`border rounded-2xl transition-all duration-200 overflow-hidden ${
-                      isExpanded
-                        ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50/10 dark:bg-indigo-950/10 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
+                    className="border rounded-2xl transition-all duration-200 overflow-hidden border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-indigo-300 dark:hover:border-indigo-700"
                   >
                     {/* CABECERA DE LA TARJETA (CLICKABLE: UN CLIC ABRE, OTRO CIERRA) */}
                     <div
-                      onClick={() => handleTogglePending(st.stylist_id)}
+                      onClick={() => setDetailPendingId(st.stylist_id)}
                       className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50/60 dark:hover:bg-slate-800/20 transition"
-                      title={isExpanded ? 'Haga clic para ocultar detalles' : 'Haga clic para ver servicios pendientes'}
+                      title="Haga clic para ver el detalle de servicios pendientes"
                     >
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-sm flex items-center justify-center shrink-0">
@@ -507,149 +713,11 @@ export const StylistPaymentsView: React.FC = () => {
                         </div>
 
                         <div className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
+                          <ChevronRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
                       </div>
                     </div>
 
-                    {/* DETALLE DESPLEGABLE DE LOS SERVICIOS PENDIENTES */}
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 dark:border-slate-800/80 p-4 bg-slate-50/50 dark:bg-slate-950/40 animate-in fade-in duration-150 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-1">
-                          <span>Servicios pendientes a liquidar</span>
-                          <span>{st.pending_services_count} {st.pending_services_count === 1 ? 'servicio' : 'servicios'}</span>
-                        </div>
-
-                        {/* LISTADO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {groupServices(st.services, (srv) => srv.amount_to_pay).map((group) => (
-                            <ServiceGroupCard
-                              key={group.key}
-                              group={group}
-                              variant="pending"
-                              onDeleteOne={(srv) => handleOpenDeleteOneModal(st, srv)}
-                            />
-                          ))}
-                        </div>
-
-                        {/* UTILIDADES POR AYUDAR EN SERVICIOS (concepto adicional) */}
-                        {st.utilities.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
-                              <span className="flex items-center gap-1.5">
-                                <HandCoins className="w-3.5 h-3.5" />
-                                Utilidades por estilista auxiliar
-                              </span>
-                              <span>{st.utilities.length} registros</span>
-                            </div>
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                              {st.utilities.map((u) => (
-                                <div
-                                  key={u.utility_id}
-                                  className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                >
-                                  <div className="space-y-1 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-xs text-slate-900 dark:text-white">{u.service_name}</span>
-                                      {u.invoice_number && <span className="text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                                      <span className="flex items-center gap-1">
-                                        <User className="w-3 h-3 text-slate-400" />
-                                        {u.customer_name}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3 text-slate-400" />
-                                        {formatDate(u.service_date)}
-                                      </span>
-                                      {u.main_stylist_name && (
-                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                          Ayudó a {u.main_stylist_name}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="text-right">
-                                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad</span>
-                                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
-                                        {formatCurrency(u.amount_to_pay)}
-                                      </span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setCancellingUtility({ stylistName: st.stylist_name, item: u });
-                                        setCancelUtilityPassword('');
-                                        setCancelUtilityReason('');
-                                      }}
-                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition cursor-pointer ml-1"
-                                      title="Excluir esta utilidad de la liquidación"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* RESUMEN AL FINAL DE LA LISTA */}
-                        <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
-                            <div>
-                              <span>Comisiones / ganancias: </span>
-                              <strong className="text-slate-900 dark:text-white">
-                                {formatCurrency(st.total_pending_commissions)} ({st.pending_services_count} servicios)
-                              </strong>
-                            </div>
-                            {st.pending_utilities_count > 0 && (
-                              <div>
-                                <span>Utilidades adicionales: </span>
-                                <strong className="text-emerald-700 dark:text-emerald-400">
-                                  {formatCurrency(st.total_pending_utilities)} ({st.pending_utilities_count})
-                                </strong>
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xs text-slate-500 mr-2">Total a pagar al estilista:</span>
-                            <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 font-mono">
-                              {formatCurrency(st.total_pending_amount)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* BOTONES DE ACCIÓN: "ELIMINAR TODOS LOS PENDIENTES" Y "PAGAR AHORA" */}
-                        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDeleteAllModal(st)}
-                            className="w-full sm:w-auto px-4 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-900/60 transition cursor-pointer flex items-center justify-center gap-1.5"
-                            title="Eliminar todos los servicios pendientes de este estilista con autorización"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Eliminar todos los pendientes</span>
-                          </button>
-
-                          <Button
-                            type="button"
-                            onClick={(e) => handleExecutePayout(st, e)}
-                            isLoading={isPaying}
-                            disabled={isPaying || Boolean(payingStylistId)}
-                            className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition"
-                          >
-                            <Banknote className="w-4 h-4" />
-                            Pagar ahora ({formatCurrency(st.total_pending_amount)})
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -711,8 +779,7 @@ export const StylistPaymentsView: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {filteredPayouts.map((p) => {
-                const isExpanded = Boolean(expandedPaid[p.id]);
-                const isCancelled = p.status === 'cancelled';
+                                const isCancelled = p.status === 'cancelled';
 
                 return (
                   <div
@@ -720,16 +787,14 @@ export const StylistPaymentsView: React.FC = () => {
                     className={`border rounded-2xl transition-all duration-200 overflow-hidden ${
                       isCancelled
                         ? 'border-rose-200 dark:border-rose-900/40 bg-slate-50/50 dark:bg-slate-950/40 opacity-85'
-                        : isExpanded
-                        ? 'border-emerald-300 dark:border-emerald-700/80 bg-emerald-50/10 dark:bg-emerald-950/10 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-emerald-300 dark:hover:border-emerald-700/80'
                     }`}
                   >
                     {/* CABECERA DEL PAGO (CLICKABLE: UN CLIC ABRE, OTRO CIERRA) */}
                     <div
-                      onClick={() => handleTogglePaid(p.id)}
+                      onClick={() => setDetailPaidId(p.id)}
                       className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50/60 dark:hover:bg-slate-800/20 transition"
-                      title={isExpanded ? 'Haga clic para ocultar detalles' : 'Haga clic para ver servicios abonados'}
+                      title="Haga clic para ver el detalle de servicios abonados"
                     >
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div
@@ -802,113 +867,11 @@ export const StylistPaymentsView: React.FC = () => {
                         )}
 
                         <div className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
+                          <ChevronRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         </div>
                       </div>
                     </div>
 
-                    {/* DETALLE DESPLEGABLE DE LOS SERVICIOS DEL PAGO */}
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 dark:border-slate-800/80 p-4 bg-slate-50/50 dark:bg-slate-950/40 animate-in fade-in duration-150 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 pb-1">
-                          <span>
-                            {isCancelled ? 'Servicios de este pago (revertidos a pendientes)' : 'Servicios abonados en esta operación'}
-                          </span>
-                          <span>{p.services_count} {p.services_count === 1 ? 'servicio' : 'servicios'}</span>
-                        </div>
-
-                        {/* LISTADO HISTÓRICO DE SERVICIOS: cada servicio una sola vez, con × cantidad */}
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                          {groupServices(p.services, (srv) => srv.amount_paid).map((group) => (
-                            <ServiceGroupCard key={group.key} group={group} variant="paid" />
-                          ))}
-                        </div>
-
-                        {/* UTILIDADES INCLUIDAS EN EL PAGO (snapshot histórico) */}
-                        {p.utilities.length > 0 && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-1">
-                              <span className="flex items-center gap-1.5">
-                                <HandCoins className="w-3.5 h-3.5" />
-                                Utilidades por estilista auxiliar
-                              </span>
-                              <span>{p.utilities.length} registros históricos</span>
-                            </div>
-                            {p.utilities.map((u) => (
-                              <div
-                                key={u.id}
-                                className="p-3 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-center justify-between gap-2"
-                              >
-                                <div className="space-y-0.5 flex-1">
-                                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                                    {u.service_name}
-                                    {u.invoice_number && <span className="ml-2 text-[10px] font-mono text-slate-400">#{u.invoice_number}</span>}
-                                  </span>
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                    {u.customer_name || 'Consumidor Final'} · {formatDate(u.service_date || undefined)}
-                                    {u.main_stylist_name && ` · Ayudó a ${u.main_stylist_name}`}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">Utilidad abonada</span>
-                                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
-                                    {formatCurrency(u.amount_paid)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* RESUMEN AL FINAL DE LA LISTA */}
-                        <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                          <div className="text-slate-600 dark:text-slate-300 space-y-0.5">
-                            <div>
-                              <span>Comisiones / ganancias: </span>
-                              <strong className="text-slate-900 dark:text-white">
-                                {formatCurrency(p.commissions_total)} ({p.services_count} servicios)
-                              </strong>
-                            </div>
-                            {p.utilities_count > 0 && (
-                              <div>
-                                <span>Utilidades adicionales: </span>
-                                <strong className="text-emerald-700 dark:text-emerald-400">
-                                  {formatCurrency(p.utilities_total)} ({p.utilities_count})
-                                </strong>
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="text-slate-500 mr-2">Importe histórico total:</span>
-                            <span
-                              className={`text-base font-extrabold font-mono ${
-                                isCancelled ? 'text-slate-400 line-through' : 'text-emerald-600 dark:text-emerald-400'
-                              }`}
-                            >
-                              {formatCurrency(p.total_amount)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* BOTÓN REVERTIR EN PIE DESPLEGABLE */}
-                        {!isCancelled && (
-                          <div className="pt-2 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRevertModal(p)}
-                              className="px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                              <span>Revertir pago</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -916,6 +879,36 @@ export const StylistPaymentsView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: DETALLE DE SERVICIOS PENDIENTES DEL ESTILISTA                      */}
+      {/* ========================================================================= */}
+      {detailPending && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDetailPendingId(null)}
+          title={detailPending.stylist_name}
+          subtitle={`Servicios pendientes a liquidar · ${detailPending.pending_services_count} ${detailPending.pending_services_count === 1 ? 'servicio' : 'servicios'}`}
+          maxWidth="3xl"
+        >
+          {renderPendingDetail(detailPending)}
+        </Modal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: DETALLE DE SERVICIOS DE UN PAGO REALIZADO                          */}
+      {/* ========================================================================= */}
+      {detailPaid && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDetailPaidId(null)}
+          title={detailPaid.stylist_name}
+          subtitle={`${formatDate(detailPaid.created_at)}${detailPaid.status === 'cancelled' ? ' · Pago revertido' : ' · Pago realizado'}`}
+          maxWidth="3xl"
+        >
+          {renderPaidDetail(detailPaid)}
+        </Modal>
+      )}
 
       {/* ========================================================================= */}
       {/* MODAL 3.1: REVERTIR PAGO HISTÓRICO                                        */}

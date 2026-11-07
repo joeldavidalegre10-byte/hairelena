@@ -70,6 +70,7 @@ export class AuthService {
         username: user.username || user.email,
         email: user.email,
         role: user.role,
+        full_name: user.full_name,
         fullName: user.full_name,
         permissions: resolvePermissions(user.role, user.permissions),
       },

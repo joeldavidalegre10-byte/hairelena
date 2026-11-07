@@ -6,6 +6,10 @@ import { formatCurrency } from '../../utils/formatters';
 export const Navbar: React.FC = () => {
   const { user, currentRegister, setActiveTab, theme, toggleTheme } = useApp();
 
+  // Nombre completo del usuario que inició sesión (admin o cajero). Se aceptan ambos formatos de la API.
+  const rawUser = user as (typeof user & { fullName?: string }) | null;
+  const displayName = (rawUser?.full_name || rawUser?.fullName || rawUser?.username || '').trim();
+
   return (
     <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0d0e12] px-6 flex items-center justify-between sticky top-0 z-40 shrink-0 transition-colors duration-200">
       {/* LOGO HAIR ELENA */}
@@ -66,12 +70,15 @@ export const Navbar: React.FC = () => {
         {/* PERFIL DE USUARIO */}
         <div className="flex items-center space-x-2.5 pl-2 border-l border-slate-200 dark:border-slate-800">
           <div className="avatar w-9 h-9 rounded-full bg-[#5b63f6]/10 dark:bg-[#5b63f6]/20 border border-[#5b63f6]/30 flex items-center justify-center text-[#5b63f6] font-bold text-sm">
-            {user?.full_name ? user.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase() : 'U'}
+            {displayName ? displayName.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase() : 'U'}
           </div>
           <div className="hidden sm:block text-left text-xs">
             <p className="font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-              {user?.full_name || 'Valeria Ayala'}
+              {displayName}
             </p>
+            {user?.username && user.username !== displayName && (
+              <p className="text-[10px] text-slate-400 leading-tight">@{user.username}</p>
+            )}
             <div className="flex items-center gap-1 text-slate-400 capitalize text-[10px]">
               {user?.role === 'admin' ? (
                 <ShieldCheck className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />

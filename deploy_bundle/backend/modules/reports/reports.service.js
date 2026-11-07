@@ -4,13 +4,37 @@ const num = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
 };
+// Misma regla que usan Servicios & Stock y el Punto de Venta para separar
+// productos de salón de artículos de cafetería / snacks.
+const ARTICLE_CATEGORY_ID = 'cat-cafe-01';
+const ARTICLE_NAME_HINTS = ['café', 'cafe', 'alfajor', 'dulce', 'gaseosa', 'masita', 'snack'];
+const isArticle = (p) => {
+    const description = (p.description || '').toLowerCase();
+    const name = (p.name || '').toLowerCase();
+    return (p.category_id === ARTICLE_CATEGORY_ID ||
+        description.includes('refrigerio') ||
+        description.includes('cafetería') ||
+        ARTICLE_NAME_HINTS.some((h) => name.includes(h)));
+};
 export class ReportsService {
-    static async getDashboardMetrics(period = 'day') {
+    static async getDashboardMetrics(period = 'day', from, to) {
         const db = getDb();
+        // Rango personalizado: solo se aceptan fechas AAAA-MM-DD (se validan antes de usarlas en el SQL)
+        const isIsoDate = (v) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+        const hasRange = isIsoDate(from) || isIsoDate(to);
+        if (hasRange) {
+            period = 'custom';
+        }
         // Filtro temporal por período: 'day' | 'week' | 'month' | 'year' | 'all'
         // (database.ts traduce datetime()/date() de SQLite a MySQL)
         let salesDateCondition = '';
-        if (period === 'day') {
+        if (period === 'custom') {
+            if (isIsoDate(from))
+                salesDateCondition += ` AND DATE(s.created_at) >= '${from}'`;
+            if (isIsoDate(to))
+                salesDateCondition += ` AND DATE(s.created_at) <= '${to}'`;
+        }
+        else if (period === 'day') {
             salesDateCondition = " AND DATE(s.created_at) = DATE('now', 'localtime')";
         }
         else if (period === 'week') {
@@ -113,7 +137,9 @@ export class ReportsService {
         p.name as product_name,
         p.barcode,
         p.sku,
-        COALESCE(c.name, 'Artículos & Cafetería') as category_name,
+        p.category_id as category_id,
+        p.description as description,
+        COALESCE(c.name, 'Sin categoría') as category_name,
         COALESCE(SUM(si.quantity), 0) as units_sold,
         COALESCE(SUM(si.subtotal), 0) as total_revenue,
         COALESCE(SUM(si.quantity * p.cost_price), 0) as total_cost,
@@ -126,16 +152,43 @@ export class ReportsService {
         JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' ${salesDateCondition}
       ) ON p.id = si.item_id AND si.item_type = 'product'
       WHERE p.is_active = 1
-      GROUP BY p.id, p.name, p.barcode, p.sku, p.stock, c.name
+      GROUP BY p.id, p.name, p.barcode, p.sku, p.stock, p.category_id, p.description, c.name
       ORDER BY total_revenue DESC, units_sold DESC
     `).all());
-        const productPerformances = productRows.map((r) => ({
+        const allProductPerformances = productRows.map(({ category_id, description, ...r }) => ({
             ...r,
+            is_article: isArticle({ category_id, description, name: r.product_name }),
             units_sold: num(r.units_sold),
             total_revenue: num(r.total_revenue),
             total_cost: num(r.total_cost),
             total_profit: num(r.total_profit),
             current_stock: num(r.current_stock),
+        }));
+        // Reporte separado: productos de salón vs artículos de cafetería / snacks
+        const productPerformances = allProductPerformances.filter((r) => !r.is_article);
+        const articlePerformances = allProductPerformances.filter((r) => r.is_article);
+        // 5b. Servicios más realizados en el período (qué servicio se lleva más a cabo)
+        const serviceRows = (await db.prepare(`
+      SELECT
+        si.item_name as service_name,
+        COALESCE(SUM(si.quantity), 0) as times_performed,
+        COALESCE(SUM(si.subtotal), 0) as total_revenue,
+        COALESCE(SUM(si.commission_amount), 0) as total_commission,
+        COALESCE(SUM(si.profit_amount), 0) as total_profit,
+        COUNT(DISTINCT si.stylist_id) as stylists_count
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' ${salesDateCondition}
+      WHERE si.item_type = 'service'
+      GROUP BY si.item_name
+      ORDER BY times_performed DESC, total_revenue DESC
+    `).all());
+        const servicePerformances = serviceRows.map((r) => ({
+            service_name: r.service_name,
+            times_performed: num(r.times_performed),
+            total_revenue: num(r.total_revenue),
+            total_commission: num(r.total_commission),
+            total_profit: num(r.total_profit),
+            stylists_count: num(r.stylists_count),
         }));
         // 6. Desglose de ingresos por método de pago en el período
         const paymentRows = (await db.prepare(`
@@ -154,6 +207,8 @@ export class ReportsService {
         }));
         return {
             period,
+            from: hasRange && isIsoDate(from) ? from : null,
+            to: hasRange && isIsoDate(to) ? to : null,
             totalRevenue,
             totalSalesCount,
             averageTicket,
@@ -163,6 +218,8 @@ export class ReportsService {
             stylistPerformances,
             stylist_performance: stylistPerformances,
             productPerformances,
+            articlePerformances,
+            servicePerformances,
             paymentMethods,
         };
     }
