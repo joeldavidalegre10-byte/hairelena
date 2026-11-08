@@ -88,7 +88,7 @@ export class SalesController {
         return;
       }
 
-      const isValid = AuthService.verifyAdminPassword(adminPassword);
+      const isValid = await AuthService.verifyAdminPassword(adminPassword);
       if (!isValid) {
         res.status(401).json({
           success: false,
