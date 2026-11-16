@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Scissors, Sun, Moon, Lock, User } from 'lucide-react';
+import { Scissors, Sun, Moon, Lock, User, Download } from 'lucide-react';
+import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { Button } from '../../components/ui/Button';
 
 export const LoginPage: React.FC = () => {
@@ -9,6 +10,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const { loginUser, theme, toggleTheme } = useApp();
+  const { canInstall, install } = useInstallPrompt();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +103,17 @@ export const LoginPage: React.FC = () => {
             Iniciar Sesión
           </Button>
         </form>
+
+        {canInstall && (
+          <button
+            type="button"
+            onClick={install}
+            className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#5b63f6] hover:border-[#5b63f6] transition cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            Instalar app en esta PC
+          </button>
+        )}
       </div>
     </div>
   );
